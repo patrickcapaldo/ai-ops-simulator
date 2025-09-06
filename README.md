@@ -64,24 +64,61 @@ python src/main.py
 
 Once started, you can use the `tutorial` command to explore and begin learning.
 
-## Commands
+## Help Commands
 
-| Command                   | Description                                                 |
-| :------------------------ | :---------------------------------------------------------- |
-| `help`                    | Displays a list of all available commands.                  |
-| `tutorial [list|show|start <id>]` | Lists tutorials, shows skills for one, or starts one.       |
-| `ls-jobs`                 | Lists all incoming jobs in the queue (simulated).           |
-| `submit <job_id> <node_id>` | Submits a job to a specific node (simulated).               |
-| `show-job <job_id>`       | Provides detailed information about a job (simulated).      |
-| `status`                  | Shows the current state of the cluster and resource usage (simulated). |
-| `terraform plan`          | Previews changes from the cluster configuration (simulated). |
-| `terraform apply [ -target=<node_id> ]` | Provisions resources based on the configuration, optionally targeting a specific node (simulated). |
-| `terraform destroy <node_id>` | Destroys a specific node in the cluster (simulated).        |
-| `terraform show`          | Displays the current Terraform state (simulated).           |
-| `terraform import <node_id>` | Imports an unmanaged node into Terraform state (simulated). |
-| `terraform init`          | Initializes a Terraform working directory (simulated).      |
-| `terraform validate`      | Checks configuration files for syntax and consistency (simulated). |
-| `terraform fmt`           | Rewrites Terraform configuration files to a canonical format (simulated). |
-| `debug <job_id>`          | Shows an error log for a failed job (simulated).            |
-| `convert-onnx <job_id>`   | Converts a completed model for optimization (simulated).    |
-| `edit-terraform-config`   | Allows direct editing of the mock Terraform configuration.  |
+### General Commands
+
+| Command                                   | Description                                                 |
+| :---------------------------------------- | :---------------------------------------------------------- |
+| `help`                                    | Displays this help message.                                 |
+| `tutorial [list|show|start <id>]`         | Lists tutorials, shows skills for one, or starts one. This is the main way to learn about different tools. |
+| `exit`                                    | Quits the application.                                      |
+
+### Simulated Kubernetes Commands
+
+| Command                                   | Description                                                 |
+| :---------------------------------------- | :---------------------------------------------------------- |
+| `kubectl apply -f <file>`                 | Simulates applying a Kubernetes manifest to deploy resources. |
+
+### Simulated Kubeflow Commands
+
+| Command                                   | Description                                                 |
+| :---------------------------------------- | :---------------------------------------------------------- |
+| `kfctl apply -V -f <file>`                | Simulates deploying Kubeflow components.                    |
+| `kfp run submit <file>`                   | Simulates submitting a Kubeflow pipeline.                   |
+
+### Simulated Terraform Commands
+
+| Command                                   | Description                                                 |
+| :---------------------------------------- | :---------------------------------------------------------- |
+| `terraform plan`                          | Previews changes from the simulated cluster configuration.  |
+| `terraform apply [ -target=<node_id> ]`   | Provisions resources based on the configuration in the simulated cluster, optionally targeting a specific node. |
+| `terraform destroy <node_id>`             | Destroys a specific node in the simulated cluster.          |
+| `terraform show`                          | Displays the current simulated Terraform state.             |
+| `terraform import <node_id>`              | Imports an unmanaged node into the simulated Terraform state. |
+| `terraform init`                          | Initializes a simulated Terraform working directory.        |
+| `terraform validate`                      | Checks simulated Terraform configuration files for syntax and consistency. |
+| `terraform fmt`                           | Rewrites simulated Terraform configuration files to a canonical format. |
+| `edit-terraform-config`                   | Allows direct editing of the mock Terraform configuration used in tutorials. |
+
+### Simulated JAX Commands
+
+| Command                                   | Description                                                 |
+| :---------------------------------------- | :---------------------------------------------------------- |
+| `jax.jit(<function>)`                     | Simulates JIT compiling a function for performance with JAX. |
+
+### Simulated PyTorch Commands
+
+| Command                                   | Description                                                 |
+| :---------------------------------------- | :---------------------------------------------------------- |
+| `status`                                  | Shows the current state of the simulated cluster and resource utilization. |
+| `ls-jobs`                                 | Lists all incoming jobs in the simulated queue.             |
+| `submit <job_id> <node_id>`               | Submits a job to a specific node in the simulated cluster.  |
+| `show-job <job_id>`                       | Provides detailed information about a simulated job.        |
+| `debug <job_id>`                          | Shows an error log for a failed simulated job.              |
+
+### Simulated ONNX Commands
+
+| Command                                   | Description                                                 |
+| :---------------------------------------- | :---------------------------------------------------------- |
+| `convert-onnx <job_id>`                   | Converts a completed simulated model to ONNX format for optimization. |
