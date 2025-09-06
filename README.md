@@ -19,6 +19,20 @@ As a Cluster Manager, your goal is to manage a virtual cluster of resources (CPU
 - **Random Events**: Deal with unexpected hardware failures and urgent job requests.
 - **Persistence**: Save and load your game progress at any time.
 
+## Tutorials
+
+The AI Ops Simulator includes a comprehensive set of interactive tutorials designed to guide you through the core concepts and advanced features of the game. These tutorials are structured to provide hands-on experience with managing your AI cluster and using various commands effectively.
+
+Each tutorial focuses on specific skills, including:
+
+- **Terraform Core Workflow**: Learn the fundamentals of `terraform` commands like `apply`, `plan`, `destroy`, `init`, `validate`, and `fmt` to manage your infrastructure.
+- **Terraform Advanced Management**: Dive deeper into `terraform` with topics such as targeting specific resources (`-target`), inspecting state (`show`), and listing state resources (`state list`).
+- **PyTorch Core Concepts**: Understand how to handle PyTorch version mismatches, debug job failures, and perform basic job submissions.
+- **ONNX Core Concepts**: Explore model optimization workflows using ONNX, including converting models and submitting optimized jobs for improved resource efficiency.
+- **Model Workflows: Combined**: Experience the full end-to-end lifecycle of a model, from PyTorch job execution to ONNX optimization, combining all learned concepts.
+
+To access the tutorials within the game, type `tutorial` for a list of available tutorials, `tutorial show <ID>` to see the skills offered by a specific tutorial, or `tutorial start <ID>` to begin a tutorial.
+
 ## Requirements
 
 - Python 3.x

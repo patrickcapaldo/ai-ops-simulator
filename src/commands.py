@@ -4,9 +4,9 @@ Handles command-line parsing and execution for the game.
 from rich.console import Console
 from rich.table import Table
 
-from data import JobStatus
-from game import Game
-from tutorials import TUTORIALS
+from src.data import JobStatus
+from src.game import Game
+from src.tutorials import TUTORIALS
 
 console = Console()
 
@@ -95,7 +95,12 @@ class CommandHandler:
                 table.add_column("Name")
                 table.add_column("Status")
                 for tid, t in tutorials.items():
-                    status = "[bold green]Completed[/bold green]" if tid in self.game.completed_tutorials else "Not Started"
+                    if tid in self.game.completed_tutorials:
+                        status = "[bold green]Completed[/bold green]"
+                    elif self.game.active_tutorial_id and self.game.active_tutorial_id == tid:
+                        status = "[bold yellow]In Progress[/bold yellow]"
+                    else:
+                        status = "Not Started"
                     table.add_row(tid, t["name"], status)
                 console.print(table)
             console.print("\nTo see skills taught in a tutorial, type: `tutorial show <ID>`")

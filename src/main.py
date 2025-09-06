@@ -1,14 +1,19 @@
 """
 The main entry point for the AI Ops Simulator game.
 """
+import sys
+import os
+
+# Add the project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import time
 
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.panel import Panel
 
-from commands import CommandHandler
-from game import Game
+from src.commands import CommandHandler
+from src.game import Game
 
 console = Console()
 

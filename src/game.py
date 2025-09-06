@@ -6,8 +6,8 @@ import random
 import re
 from typing import Dict, List, Optional
 
-from data import (TERRAFORM_CONFIG, Cluster, Job, JobStatus, JobType, Node)
-from tutorials import TUTORIALS
+from src.data import (TERRAFORM_CONFIG, Cluster, Job, JobStatus, JobType, Node)
+from src.tutorials import TUTORIALS
 
 class Game:
     """
@@ -26,6 +26,7 @@ class Game:
         self.terraform_plan_preview = ""
         # Tutorial state
         self.active_tutorial: Optional[Dict] = None
+        self.active_tutorial_id: Optional[str] = None
         self.tutorial_step = 0
         self.completed_tutorials: List[str] = []
 
@@ -67,6 +68,7 @@ class Game:
         for category, tutorials in TUTORIALS.items():
             if tutorial_id in tutorials:
                 self.active_tutorial = tutorials[tutorial_id]
+                self.active_tutorial_id = tutorial_id
                 self.tutorial_step = 0
                 first_step = self.active_tutorial["steps"][0]
                 if "trigger" in first_step and callable(first_step["trigger"]):
@@ -77,21 +79,20 @@ class Game:
     def end_tutorial(self):
         """Ends the current tutorial and marks it as complete."""
         if self.active_tutorial:
-            # Find the tutorial ID
-            tutorial_id = None
-            for cat, tutorials in TUTORIALS.items():
-                for tid, tdata in tutorials.items():
-                    if tdata == self.active_tutorial:
-                        tutorial_id = tid
-                        break
-                if tutorial_id:
-                    break
+            tutorial_id = self.active_tutorial_id
             
             if tutorial_id and tutorial_id not in self.completed_tutorials:
                 self.completed_tutorials.append(tutorial_id)
             
             self.active_tutorial = None
+            self.active_tutorial_id = None
             self.tutorial_step = 0
+            # Need to get category for log message
+            cat = None
+            for c, tutorials_in_cat in TUTORIALS.items():
+                if tutorial_id in tutorials_in_cat:
+                    cat = c
+                    break
             self.log_event(f"Tutorial '{TUTORIALS[cat][tutorial_id]['name']}' completed!")
             # Reset to a default state
             self.setup_tutorial_state(jobs=2, nodes=2)

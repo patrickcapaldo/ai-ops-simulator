@@ -3,7 +3,7 @@
 Defines the content and structure for interactive tutorials, grouped by category. 
 '''
 
-from data import Node, Job, JobType
+from src.data import Node, Job, JobType
 
 def create_node_trigger(game, node_id, cpu, gpu, ram, pytorch_version, unmanaged=False):
     """A trigger to create a specific node for a tutorial step."""
@@ -42,7 +42,7 @@ TUTORIALS = {
                     "text": "Excellent! You've just used `terraform apply` to create a node. This command executes the changes defined in your configuration.\nType `status` to see your new node.",
                     "expected_command": "status",
                     "doc_link": "https://www.terraform.io/cli/commands/apply",
-                    "doc_quote": "The `terraform apply` command is a fundamental part of the Terraform workflow, used to apply the changes defined in your Terraform configuration to create, update, or destroy infrastructure."
+                    "doc_quote": "The `terraform apply` command is used to execute the actions proposed in a Terraform plan."
                 },
                 {
                     "text": "You've successfully provisioned your first resource!\nThis concludes the first tutorial.",
@@ -67,7 +67,7 @@ TUTORIALS = {
                     "text": "Notice Terraform plans to create 2 new nodes. This is a 'dry run' that shows the execution plan.\nNow, apply these changes. Type `terraform apply`.",
                     "expected_command": "terraform apply",
                     "doc_link": "https://www.terraform.io/cli/commands/plan",
-                    "doc_quote": "The `terraform plan` command is a crucial part of the Terraform workflow that creates an execution plan, allowing you to preview the changes Terraform will make to your infrastructure before you apply them."
+                    "doc_quote": "The `terraform plan` command creates an execution plan, which lets you preview the changes that Terraform plans to make to your infrastructure."
                 },
                 {
                     "text": "Great! You've successfully planned and applied changes.\nType `status` to confirm you now have 3 nodes.",
@@ -96,7 +96,7 @@ TUTORIALS = {
                     "text": "You've successfully destroyed `node-0`. This command terminates resources managed by Terraform.\nType `status` to confirm you now have 2 nodes.",
                     "expected_command": "status",
                     "doc_link": "https://www.terraform.io/cli/commands/destroy",
-                    "doc_quote": "The `terraform destroy` command is used... to terminate all resources managed by a specific Terraform configuration."
+                    "doc_quote": "The `terraform destroy` command deprovisions all objects managed by a Terraform configuration."
                 },
                 {
                     "text": "You've learned to destroy resources!\nThis concludes the destroy tutorial.",
@@ -120,7 +120,7 @@ TUTORIALS = {
                     "text": "Terraform has successfully initialized the directory. You're now ready to apply configurations.\nThis concludes the initialization tutorial.",
                     "expected_command": None,
                     "doc_link": "https://www.terraform.io/cli/commands/init",
-                    "doc_quote": "The `terraform init` command is used to initialize a working directory containing Terraform configuration files. This is the first command that should be run after writing a new Terraform configuration or cloning an existing one from version control."
+                    "doc_quote": "The `terraform init` command initializes a working directory containing Terraform configuration files. This is the first command you should run after writing a new Terraform configuration or cloning an existing configuration from version control."
                 }
             ]
         },
@@ -140,7 +140,7 @@ TUTORIALS = {
                     "text": "Terraform has validated the configuration. If there were any errors, they would be displayed here. This helps ensure your configuration is syntactically correct and internally consistent.\nThis concludes the validation tutorial.",
                     "expected_command": None,
                     "doc_link": "https://www.terraform.io/cli/commands/validate",
-                    "doc_quote": "The `terraform validate` command checks the configuration files in a directory for syntax errors and internal consistency, but does not access any remote services or remote state."
+                    "doc_quote": "The `terraform validate` command validates the configuration files in a directory. It does not validate remote services, such as remote state or provider APIs."
                 }
             ]
         },
@@ -164,7 +164,7 @@ TUTORIALS = {
                     "text": "Your configuration is now poorly formatted. To automatically fix this, type `terraform fmt`.",
                     "expected_command": "terraform fmt",
                     "doc_link": "https://www.terraform.io/cli/commands/fmt",
-                    "doc_quote": "The `terraform fmt` command is used to rewrite Terraform configuration files to a canonical format and style. This command applies a subset of the Terraform language style conventions, including consistent indentation and spacing."
+                    "doc_quote": "The `terraform fmt` command formats Terraform configuration file contents so that it matches the canonical format and style. This command applies a subset of the Terraform language style conventions, along with other minor adjustments for readability."
                 },
                 {
                     "text": "Terraform has automatically reformatted your configuration. You can type `edit-terraform-config` again to see the changes, or just proceed.\nThis concludes the formatting tutorial.",
@@ -190,7 +190,7 @@ TUTORIALS = {
                     "text": "You've successfully targeted `node-0` for an update. The `-target` flag directs Terraform's operations to a specific subset of resources.\nType `status` to confirm only `node-0` has 128GB RAM.",
                     "expected_command": "status",
                     "doc_link": "https://www.terraform.io/cli/commands/apply#target-a-specific-resource",
-                    "doc_quote": "The `-target` flag... allows you to direct Terraform's operations to a specific subset of your resources."
+                    "doc_quote": "The `-target` option can be used to focus Terraform's attention on only a subset of the resources in a configuration."
                 },
                 {
                     "text": "You've mastered targeted applies!\nThis concludes the targeting tutorial.",
@@ -214,7 +214,7 @@ TUTORIALS = {
                     "text": "This output is a simplified view of Terraform's state, showing the resources it manages.\nType `status` to compare it with your actual cluster.",
                     "expected_command": "status",
                     "doc_link": "https://www.terraform.io/cli/commands/show",
-                    "doc_quote": "The `terraform show` command provides human-readable output from a state or plan file... to inspect the current current state as Terraform sees it."
+                    "doc_quote": "The `terraform show` command provides human-readable output from a state or plan file. Use the command to inspect a plan to ensure that the planned operations are expected, or to inspect the current state as Terraform sees it."
                 },
                 {
                     "text": "You've learned to inspect Terraform state!\nThis concludes the state inspection tutorial.",
@@ -238,7 +238,7 @@ TUTORIALS = {
                     "text": "This command shows a list of all resources that Terraform is currently managing. This is useful for auditing your infrastructure or preparing for state manipulations.\nThis concludes the state listing tutorial.",
                     "expected_command": None,
                     "doc_link": "https://www.terraform.io/cli/commands/state/list",
-                    "doc_quote": "The `terraform state list` command lists all resources within the Terraform state. This command is useful for auditing the resources managed by Terraform."
+                    "doc_quote": "The `terraform state list` command lists resources within a Terraform state file."
                 }
             ]
         }
@@ -264,7 +264,7 @@ TUTORIALS = {
                     "text": "Terraform wants to create a new node because it doesn't know about `node-manual`. Let's import it.\nType `terraform import node-manual`.",
                     "expected_command": "terraform import node-manual",
                     "doc_link": "https://www.terraform.io/cli/commands/import",
-                    "doc_quote": "The `terraform import` command is used to bring existing infrastructure, that was created outside of Terraform, under its management."
+                    "doc_quote": "The `terraform import` command is used to bring existing infrastructure under Terraform's management."
                 },
                 {
                     "text": "`node-manual` is now imported! Terraform has updated its state. Now, run `terraform plan` again.",
@@ -303,9 +303,7 @@ TUTORIALS = {
                 },
                 {
                     "text": "The error shows a version mismatch. Now check your cluster to find the right node. Type `status`.",
-                    "expected_command": "status",
-                    "doc_link": "https://pytorch.org/get-started/previous-versions/",
-                    "doc_quote": "Models saved with `torch.jit.save()` on a newer PyTorch version may not be loadable on older versions if the serialized model uses operators or behaviors not present in the older version."
+                    "expected_command": "status"
                 },
                 {
                     "text": "You can see `node-1` has the correct PyTorch version (1.9).\nNow, submit the job to the correct node: `submit <job_id> node-1`.",
@@ -336,7 +334,7 @@ TUTORIALS = {
                 },
                 {
                     "text": "The job is now running on `node-0`.",
-                    "expected_command": None
+                    "expected_command": "status"
                 },
                 {
                     "text": "To see the job's progress, type `show-job <job_id>`.",
@@ -375,7 +373,7 @@ TUTORIALS = {
                     "expected_command": "convert-onnx",
                     "is_dynamic": True,
                     "doc_link": "https://pytorch.org/docs/stable/onnx.html",
-                    "doc_quote": "To convert a PyTorch model to ONNX, you can use the built-in `torch.onnx.export()` function. This function traces the model's execution to record the computational graph."
+                    "doc_quote": "PyTorch models can be converted to the ONNX format using the `torch.onnx.export()` function."
                 },
                 {
                     "text": "Excellent! A new, optimized ONNX job has been created with lower resource requirements.\nCheck the job queue to see it. Type `ls-jobs`.",
