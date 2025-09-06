@@ -1,0 +1,8 @@
+#!/bin/bash
+# This script runs the AI Ops Simulator game.
+
+# Find the directory where the script is located
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Run the main Python script from that directory
+python3 "$DIR/main.py" "$@"

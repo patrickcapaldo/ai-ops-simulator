@@ -6,6 +6,7 @@ from rich.table import Table
 
 from data import JobStatus
 from game import Game
+from tutorials import TUTORIALS
 
 console = Console()
 
@@ -17,6 +18,7 @@ class CommandHandler:
         self.game = game
         self.commands = {
             "help": self._help,
+            "tutorial": self._tutorial,
             "status": self._status,
             "ls-jobs": self._ls_jobs,
             "submit": self._submit,
@@ -56,6 +58,7 @@ class CommandHandler:
         table.add_column("Description")
         commands_help = {
             "help": "Displays this help message.",
+            "tutorial [list|show|start <id>]": "Lists tutorials, shows skills for one, or starts one.",
             "status": "Shows the current state of the cluster and resource utilization.",
             "ls-jobs": "Lists all incoming jobs in the queue.",
             "submit <job_id> <node_id>": "Submits a job to a specific node.",
@@ -75,6 +78,45 @@ class CommandHandler:
         for cmd, desc in commands_help.items():
             table.add_row(cmd, desc)
         console.print(table)
+
+    def _tutorial(self, args):
+        """Lists tutorials, shows details, or starts one."""
+        if not args or args[0] == "list":
+            table = Table(title="Available Tutorials", show_header=True, header_style="bold blue")
+            table.add_column("ID", style="dim")
+            table.add_column("Name")
+            table.add_column("Status")
+            for tid, t in TUTORIALS.items():
+                status = "[bold green]Completed[/bold green]" if tid in self.game.completed_tutorials else "Not Started"
+                table.add_row(tid, t["name"], status)
+            console.print(table)
+            console.print("\nTo see skills taught in a tutorial, type: `tutorial show <ID>`")
+            console.print("To start a tutorial, type: `tutorial start <ID>`")
+
+        elif args[0] == "show":
+            if len(args) < 2:
+                console.print("[bold red]Usage: tutorial show <ID>[/bold red]")
+                return
+            tutorial_id = args[1]
+            if tutorial_id in TUTORIALS:
+                tutorial = TUTORIALS[tutorial_id]
+                console.print(f"\n[bold]Skills for tutorial: {tutorial['name']}[/bold]")
+                for skill in tutorial["skills_learned"]:
+                    console.print(f"- {skill}")
+            else:
+                console.print("[bold red]Tutorial not found.[/bold red]")
+
+        elif args[0] == "start":
+            if len(args) < 2:
+                console.print("[bold red]Usage: tutorial start <ID>[/bold red]")
+                return
+            tutorial_id = args[1]
+            if self.game.start_tutorial(tutorial_id):
+                console.print(f"[bold green]Starting tutorial: '{TUTORIALS[tutorial_id]['name']}'...[/bold green]")
+            else:
+                console.print("[bold red]Tutorial not found.[/bold red]")
+        else:
+            console.print("[bold red]Usage: tutorial [list|show|start <ID>][/bold red]")
 
     def _status(self, args):
         """Shows the current state of the cluster."""

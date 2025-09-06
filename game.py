@@ -7,6 +7,7 @@ import re
 from typing import Dict, List, Optional
 
 from data import (TERRAFORM_CONFIG, Cluster, Job, JobStatus, JobType, Node)
+from tutorials import TUTORIALS
 
 class Game:
     """
@@ -23,9 +24,16 @@ class Game:
         self.autoscaling_enabled = False
         self.event_log: List[str] = []
         self.terraform_plan_preview = ""
+        # Tutorial state
+        self.active_tutorial: Optional[Dict] = None
+        self.tutorial_step = 0
+        self.completed_tutorials: List[str] = []
 
     def update(self):
         """Main game loop update function."""
+        # Do not update game state if a tutorial is active
+        if self.active_tutorial:
+            return
         self.time += 1
         self.cost += self._calculate_cost()
         self._generate_jobs()
@@ -33,6 +41,84 @@ class Game:
         self._handle_events()
         if self.autoscaling_enabled:
             self._autoscale_resources()
+
+    def setup_tutorial_state(self, jobs: int = 0, nodes: int = 0):
+        """Sets up a clean state for a tutorial scenario."""
+        self.job_queue.clear()
+        self.completed_jobs.clear()
+        self.failed_jobs.clear()
+        self.cluster = Cluster()
+
+        for i in range(nodes):
+            node = Node(f"node-{i}", 8, 2, 64, "2.0")
+            self.cluster.add_node(node)
+
+        for _ in range(jobs):
+            job_type = random.choice([JobType.PYTORCH_TRAINING, JobType.INFERENCE])
+            requirements = {"cpu": random.randint(1, 2), "gpu": random.randint(0, 1), "ram": random.randint(4, 8)}
+            new_job = Job(job_type, requirements, self.time + 50, "2.0" if job_type == JobType.PYTORCH_TRAINING else None)
+            self.job_queue.append(new_job)
+
+    def start_tutorial(self, tutorial_id: str) -> bool:
+        """Starts an interactive tutorial."""
+        if tutorial_id not in TUTORIALS:
+            return False
+        self.active_tutorial = TUTORIALS[tutorial_id]
+        self.tutorial_step = 0
+        first_step = self.active_tutorial["steps"][0]
+        if "trigger" in first_step and callable(first_step["trigger"]):
+            first_step["trigger"](self)
+        return True
+
+    def end_tutorial(self):
+        """Ends the current tutorial and marks it as complete."""
+        if self.active_tutorial:
+            tutorial_id = next(tid for tid, t in TUTORIALS.items() if t == self.active_tutorial)
+            if tutorial_id not in self.completed_tutorials:
+                self.completed_tutorials.append(tutorial_id)
+            self.active_tutorial = None
+            self.tutorial_step = 0
+            self.log_event(f"Tutorial '{TUTORIALS[tutorial_id]['name']}' completed!")
+            # Reset to a default state
+            self.setup_tutorial_state(jobs=2, nodes=2)
+
+
+    def get_tutorial_prompt(self) -> str:
+        """Gets the instructional text for the current tutorial step."""
+        if not self.active_tutorial:
+            return ""
+        return self.active_tutorial["steps"][self.tutorial_step]["text"]
+
+    def check_tutorial_input(self, user_input: str) -> bool:
+        """Checks if the user input matches the expectation for the current tutorial step."""
+        if not self.active_tutorial:
+            return False
+
+        step = self.active_tutorial["steps"][self.tutorial_step]
+        expected = step["expected_command"]
+        
+        if expected is None: # End of tutorial
+            return True
+
+        # For dynamic commands like 'submit', just check the command itself
+        if step.get("is_dynamic"):
+            return user_input.strip().startswith(expected)
+        
+        return user_input.strip() == expected
+
+    def advance_tutorial(self):
+        """Moves to the next step in the tutorial."""
+        if not self.active_tutorial:
+            return
+
+        self.tutorial_step += 1
+        if self.tutorial_step >= len(self.active_tutorial["steps"]):
+            self.end_tutorial()
+        else:
+            # Trigger action for the new step
+            next_step = self.active_tutorial["steps"][self.tutorial_step]
+            if "trigger" in next_step and callable(next_step["trigger"]):
+                next_step["trigger"](self)
 
     def _calculate_cost(self) -> float:
         """Calculates the resource cost for the current time step."""
@@ -234,6 +320,7 @@ class Game:
             "event_log": self.event_log,
             "jobs": {job.id: job.to_dict() for job in all_jobs},
             "cluster": self.cluster.to_dict(),
+            "completed_tutorials": self.completed_tutorials,
         }
         try:
             with open(filename, "w") as f:
@@ -257,6 +344,7 @@ class Game:
             self.autoscaling_enabled = state["autoscaling_enabled"]
             self.event_log = state["event_log"]
             self.cluster = Cluster.from_dict(state["cluster"], jobs_map)
+            self.completed_tutorials = state.get("completed_tutorials", [])
 
             self.job_queue = [j for j in jobs_map.values() if j.status == JobStatus.PENDING]
             self.completed_jobs = [j for j in jobs_map.values() if j.status == JobStatus.COMPLETED]
