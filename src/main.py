@@ -69,7 +69,7 @@ def main():
             console.print("\n[bold blue]Exiting tutorials. Goodbye![/bold blue]")
             break
         except KeyboardInterrupt: # Ctrl+C
-            console.print("\n[bold yellow]Operation cancelled. Returning to prompt.[/bold yellow]")
+            console.print("\n[bold yellow]Operation cancelled. Returning to prompt. To quit, type `exit`.[/bold yellow]")
             # If a tutorial is active, we might want to reset the step or just stay at the current step.
             # For now, just return to the prompt.
             continue # Continue the loop to show the prompt again
