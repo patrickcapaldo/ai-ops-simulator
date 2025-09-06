@@ -5,6 +5,7 @@ import time
 
 from rich.console import Console
 from rich.prompt import Prompt
+from rich.panel import Panel
 
 from commands import CommandHandler
 from game import Game
@@ -28,9 +29,23 @@ def main():
         while True:
             if game.active_tutorial:
                 # Tutorial Mode
-                prompt_text = game.get_tutorial_prompt()
+                step_data = game.active_tutorial["steps"][game.tutorial_step]
+                prompt_text = step_data["text"]
                 console.print(f"\n[bold cyan]TUTORIAL:[/bold cyan] {prompt_text}")
+                
+                doc_prompt = ""
+                if step_data.get("doc_link"):
+                    doc_prompt += f"[dim]For more info, see:[/dim] [link={step_data['doc_link']}]{step_data['doc_link']}[/link]"
+                if step_data.get("doc_quote"):
+                    doc_prompt += " [dim](Type [bold]docs[/bold] to see a quote)[/dim]"
+                if doc_prompt:
+                    console.print(doc_prompt)
+
                 command_input = Prompt.ask("\nEnter command")
+
+                if command_input.strip().lower() == "docs" and step_data.get("doc_quote"):
+                    console.print(Panel(step_data["doc_quote"], title="Documentation Quote", border_style="grey70"))
+                    continue # Re-prompt for the actual command
 
                 if game.check_tutorial_input(command_input):
                     command_handler.execute(command_input)

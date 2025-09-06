@@ -42,7 +42,7 @@ class Game:
         if self.autoscaling_enabled:
             self._autoscale_resources()
 
-    def setup_tutorial_state(self, jobs: int = 0, nodes: int = 0):
+    def setup_tutorial_state(self, jobs: int = 0, nodes: int = 0, custom_setup: str = None):
         """Sets up a clean state for a tutorial scenario."""
         self.job_queue.clear()
         self.completed_jobs.clear()
@@ -58,27 +58,41 @@ class Game:
             requirements = {"cpu": random.randint(1, 2), "gpu": random.randint(0, 1), "ram": random.randint(4, 8)}
             new_job = Job(job_type, requirements, self.time + 50, "2.0" if job_type == JobType.PYTORCH_TRAINING else None)
             self.job_queue.append(new_job)
+        
+        if custom_setup:
+            exec(custom_setup)
 
     def start_tutorial(self, tutorial_id: str) -> bool:
-        """Starts an interactive tutorial."""
-        if tutorial_id not in TUTORIALS:
-            return False
-        self.active_tutorial = TUTORIALS[tutorial_id]
-        self.tutorial_step = 0
-        first_step = self.active_tutorial["steps"][0]
-        if "trigger" in first_step and callable(first_step["trigger"]):
-            first_step["trigger"](self)
-        return True
+        """Starts an interactive tutorial by searching through categories."""
+        for category, tutorials in TUTORIALS.items():
+            if tutorial_id in tutorials:
+                self.active_tutorial = tutorials[tutorial_id]
+                self.tutorial_step = 0
+                first_step = self.active_tutorial["steps"][0]
+                if "trigger" in first_step and callable(first_step["trigger"]):
+                    first_step["trigger"](self)
+                return True
+        return False
 
     def end_tutorial(self):
         """Ends the current tutorial and marks it as complete."""
         if self.active_tutorial:
-            tutorial_id = next(tid for tid, t in TUTORIALS.items() if t == self.active_tutorial)
-            if tutorial_id not in self.completed_tutorials:
+            # Find the tutorial ID
+            tutorial_id = None
+            for cat, tutorials in TUTORIALS.items():
+                for tid, tdata in tutorials.items():
+                    if tdata == self.active_tutorial:
+                        tutorial_id = tid
+                        break
+                if tutorial_id:
+                    break
+            
+            if tutorial_id and tutorial_id not in self.completed_tutorials:
                 self.completed_tutorials.append(tutorial_id)
+            
             self.active_tutorial = None
             self.tutorial_step = 0
-            self.log_event(f"Tutorial '{TUTORIALS[tutorial_id]['name']}' completed!")
+            self.log_event(f"Tutorial '{TUTORIALS[cat][tutorial_id]['name']}' completed!")
             # Reset to a default state
             self.setup_tutorial_state(jobs=2, nodes=2)
 
@@ -196,6 +210,7 @@ class Game:
             try:
                 node.assign_job(job)
                 self.job_queue.remove(job)
+                job.submission_time = self.time # Set submission time
                 self.log_event(f"Job '{job_id}' submitted to node '{node_id}'.")
                 return f"Job '{job_id}' submitted successfully."
             except ValueError as e:
@@ -226,6 +241,7 @@ class Game:
         """Marks a job as complete and awards points."""
         node.release_job(job)
         job.status = JobStatus.COMPLETED
+        job.completion_time = self.time # Set completion time
         self.completed_jobs.append(job)
         self.score += 100
         self.log_event(f"Job '{job.id}' completed successfully on node '{node.id}'.")
@@ -250,7 +266,7 @@ class Game:
         self.terraform_plan_preview = f"Terraform will create {count} new nodes."
         return self.terraform_plan_preview
 
-    def terraform_apply(self) -> str:
+    def terraform_apply(self, target: Optional[str] = None) -> str:
         """Applies the terraform plan to provision new nodes."""
         match_count = re.search(r'count = (\d+)', TERRAFORM_CONFIG)
         match_cpu = re.search(r'cpu = (\d+)', TERRAFORM_CONFIG)
@@ -260,6 +276,16 @@ class Game:
 
         if not all([match_count, match_cpu, match_gpu, match_ram, match_version]):
             return "Error parsing Terraform config."
+
+        if target:
+            node = self.cluster.get_node(target)
+            if not node:
+                return f"Target node '{target}' not found."
+            node.resources["cpu"] = int(match_cpu.group(1))
+            node.resources["gpu"] = int(match_gpu.group(1))
+            node.resources["ram"] = int(match_ram.group(1))
+            self.log_event(f"Terraform applied: Targeted update for node '{target}'.")
+            return f"Node '{target}' has been updated."
 
         count = int(match_count.group(1))
         for i in range(count):
@@ -274,6 +300,46 @@ class Game:
             self.cluster.add_node(new_node)
         self.log_event(f"Terraform applied: {count} nodes provisioned.")
         return f"{count} nodes have been provisioned."
+
+    def terraform_destroy(self, node_id: str) -> str:
+        """Removes a node from the cluster."""
+        node = self.cluster.get_node(node_id)
+        if not node:
+            return f"Node '{node_id}' not found."
+
+        if node.running_jobs:
+            return f"Cannot destroy node '{node_id}': it has running jobs."
+
+        self.cluster.remove_node(node_id)
+        self.log_event(f"Terraform destroyed node '{node_id}'.")
+        return f"Node '{node_id}' destroyed."
+
+    def terraform_show(self) -> str:
+        """Displays a simplified view of the Terraform state."""
+        output = "# Terraform State:\n"
+        for node_id, node in self.cluster.nodes.items():
+            if node.unmanaged:
+                continue
+            output += f'''resource "cluster_node" "{node_id}" {{
+  cpu             = {node.resources["cpu"]}
+  gpu             = {node.resources["gpu"]}
+  ram             = {node.resources["ram"]}
+  pytorch_version = "{node.pytorch_version}"
+}}
+'''
+        return output
+
+    def terraform_import(self, node_id: str) -> str:
+        """Imports an unmanaged node into the Terraform state."""
+        node = self.cluster.get_node(node_id)
+        if not node:
+            return f"Node '{node_id}' not found to import."
+        if not node.unmanaged:
+            return f"Node '{node_id}' is already managed by Terraform."
+        
+        node.unmanaged = False
+        self.log_event(f"Terraform imported node '{node_id}' into state.")
+        return f"Successfully imported '{node_id}' into Terraform state."
 
     def convert_to_onnx(self, job_id: str) -> str:
         """Converts a completed PyTorch job to an ONNX job for optimization."""
@@ -301,6 +367,26 @@ class Game:
                 if job.id == job_id:
                     return job
         return None
+
+    def get_metrics(self) -> Dict[str, float]:
+        """Calculates and returns key performance metrics."""
+        total_completed_jobs = len(self.completed_jobs)
+        total_failed_jobs = len(self.failed_jobs)
+
+        total_completion_time = 0
+        for job in self.completed_jobs:
+            if job.submission_time is not None and job.completion_time is not None:
+                total_completion_time += (job.completion_time - job.submission_time)
+
+        avg_completion_time = total_completion_time / total_completed_jobs if total_completed_jobs > 0 else 0
+
+        return {
+            "total_time": self.time,
+            "completed_jobs": total_completed_jobs,
+            "failed_jobs": total_failed_jobs,
+            "avg_completion_time": avg_completion_time,
+            "total_cost": self.cost,
+        }
 
     def log_event(self, message: str):
         """Adds an event to the game log."""

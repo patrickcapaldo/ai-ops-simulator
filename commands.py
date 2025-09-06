@@ -30,6 +30,7 @@ class CommandHandler:
             "debug": self._debug,
             "convert-onnx": self._convert_onnx,
             "log": self._log,
+            "metrics": self._metrics,
             "save": self._save,
             "load": self._load,
             "exit": self._exit,
@@ -54,7 +55,7 @@ class CommandHandler:
     def _help(self, args):
         """Displays a list of available commands."""
         table = Table(title="Available Commands", show_header=True, header_style="bold magenta")
-        table.add_column("Command", style="dim", width=20)
+        table.add_column("Command", style="dim", width=30)
         table.add_column("Description")
         commands_help = {
             "help": "Displays this help message.",
@@ -65,12 +66,16 @@ class CommandHandler:
             "cancel <job_id>": "Cancels a running job.",
             "show-job <job_id>": "Provides detailed information about a job.",
             "terraform plan": "Previews changes from the cluster configuration.",
-            "terraform apply": "Provisions resources based on the configuration.",
+            "terraform apply [ -target=<node_id> ]": "Provisions resources based on the configuration, optionally targeting a specific node.",
+            "terraform destroy <node_id>": "Destroys a specific node in the cluster.",
+            "terraform show": "Displays the current Terraform state.",
+            "terraform import <node_id>": "Imports an unmanaged node into Terraform state.",
             "cost": "Displays the current resource expenditure.",
             "autoscale <on/off>": "Toggles autoscaling.",
             "debug <job_id>": "Shows an error log for a failed job.",
             "convert-onnx <job_id>": "Converts a completed model for optimization.",
             "log": "Displays a history of game events.",
+            "metrics": "Displays key performance metrics and statistics.",
             "save": "Saves the current game state.",
             "load": "Loads a saved game state.",
             "exit": "Quits the game.",
@@ -82,14 +87,17 @@ class CommandHandler:
     def _tutorial(self, args):
         """Lists tutorials, shows details, or starts one."""
         if not args or args[0] == "list":
-            table = Table(title="Available Tutorials", show_header=True, header_style="bold blue")
-            table.add_column("ID", style="dim")
-            table.add_column("Name")
-            table.add_column("Status")
-            for tid, t in TUTORIALS.items():
-                status = "[bold green]Completed[/bold green]" if tid in self.game.completed_tutorials else "Not Started"
-                table.add_row(tid, t["name"], status)
-            console.print(table)
+            console.print("[bold]Available Tutorials[/bold]")
+            for category, tutorials in TUTORIALS.items():
+                console.print(f"\n[bold blue]Category: {category}[/bold blue]")
+                table = Table(show_header=True, header_style="bold cyan")
+                table.add_column("ID", style="dim", width=15)
+                table.add_column("Name")
+                table.add_column("Status")
+                for tid, t in tutorials.items():
+                    status = "[bold green]Completed[/bold green]" if tid in self.game.completed_tutorials else "Not Started"
+                    table.add_row(tid, t["name"], status)
+                console.print(table)
             console.print("\nTo see skills taught in a tutorial, type: `tutorial show <ID>`")
             console.print("To start a tutorial, type: `tutorial start <ID>`")
 
@@ -98,10 +106,15 @@ class CommandHandler:
                 console.print("[bold red]Usage: tutorial show <ID>[/bold red]")
                 return
             tutorial_id = args[1]
-            if tutorial_id in TUTORIALS:
-                tutorial = TUTORIALS[tutorial_id]
-                console.print(f"\n[bold]Skills for tutorial: {tutorial['name']}[/bold]")
-                for skill in tutorial["skills_learned"]:
+            found_tutorial = None
+            for category, tutorials in TUTORIALS.items():
+                if tutorial_id in tutorials:
+                    found_tutorial = tutorials[tutorial_id]
+                    break
+            
+            if found_tutorial:
+                console.print(f"\n[bold]Skills for tutorial: {found_tutorial['name']}[/bold]")
+                for skill in found_tutorial["skills_learned"]:
                     console.print(f"- {skill}")
             else:
                 console.print("[bold red]Tutorial not found.[/bold red]")
@@ -112,7 +125,12 @@ class CommandHandler:
                 return
             tutorial_id = args[1]
             if self.game.start_tutorial(tutorial_id):
-                console.print(f"[bold green]Starting tutorial: '{TUTORIALS[tutorial_id]['name']}'...[/bold green]")
+                # Find name for confirmation message
+                for category, tutorials in TUTORIALS.items():
+                    if tutorial_id in tutorials:
+                        name = tutorials[tutorial_id]["name"]
+                        console.print(f"[bold green]Starting tutorial: '{name}'...[/bold green]")
+                        break
             else:
                 console.print("[bold red]Tutorial not found.[/bold red]")
         else:
@@ -214,16 +232,41 @@ class CommandHandler:
         console.print(table)
 
     def _terraform(self, args):
-        """Handles terraform commands."""
-        if not args or args[0] not in ["plan", "apply"]:
-            console.print("[bold red]Usage: terraform <plan|apply>[/bold red]")
+        """Handles terraform commands (plan, apply, destroy, show, import)."""
+        if not args:
+            console.print("[bold red]Usage: terraform <plan|apply|destroy|show|import> [args][/bold red]")
             return
-        if args[0] == "plan":
+
+        subcommand = args[0]
+
+        if subcommand == "plan":
             result = self.game.terraform_plan()
             console.print(result)
-        elif args[0] == "apply":
-            result = self.game.terraform_apply()
+        elif subcommand == "apply":
+            target_node = None
+            if len(args) > 1 and args[1].startswith("-target="):
+                target_node = args[1].split("=")[1]
+            result = self.game.terraform_apply(target=target_node)
             console.print(result)
+        elif subcommand == "destroy":
+            if len(args) < 2:
+                console.print("[bold red]Usage: terraform destroy <node_id>[/bold red]")
+                return
+            node_id = args[1]
+            result = self.game.terraform_destroy(node_id)
+            console.print(result)
+        elif subcommand == "show":
+            result = self.game.terraform_show()
+            console.print(result)
+        elif subcommand == "import":
+            if len(args) < 2:
+                console.print("[bold red]Usage: terraform import <node_id>[/bold red]")
+                return
+            node_id = args[1]
+            result = self.game.terraform_import(node_id)
+            console.print(result)
+        else:
+            console.print(f"[bold red]Unknown terraform subcommand: '{subcommand}'[/bold red]")
 
     def _cost(self, args):
         """Displays the current cost."""
@@ -263,6 +306,19 @@ class CommandHandler:
         table.add_column("Event")
         for event in self.game.event_log[:10]:  # Show last 10 events
             table.add_row(event)
+        console.print(table)
+
+    def _metrics(self, args):
+        """Displays key performance metrics and statistics."""
+        metrics = self.game.get_metrics()
+        table = Table(title="Performance Metrics", show_header=True, header_style="bold blue")
+        table.add_column("Metric", style="dim", width=30)
+        table.add_column("Value")
+        table.add_row("Total Time Elapsed", str(metrics["total_time"]))
+        table.add_row("Total Completed Jobs", str(metrics["completed_jobs"]))
+        table.add_row("Total Failed Jobs", str(metrics["failed_jobs"]))
+        table.add_row("Average Job Completion Time", f"{metrics["avg_completion_time"]:.2f} time units")
+        table.add_row("Total Cost", f"${metrics["total_cost"]:.2f}")
         console.print(table)
 
     def _save(self, args):

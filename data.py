@@ -43,6 +43,8 @@ class Job:
         self.assigned_node: Optional[str] = None
         self.progress = 0
         self.error_message: Optional[str] = None
+        self.submission_time: Optional[int] = None  # New attribute
+        self.completion_time: Optional[int] = None  # New attribute
 
     def to_dict(self):
         """Serializes the Job object to a dictionary."""
@@ -56,6 +58,8 @@ class Job:
             "assigned_node": self.assigned_node,
             "progress": self.progress,
             "error_message": self.error_message,
+            "submission_time": self.submission_time,
+            "completion_time": self.completion_time,
         }
 
     @classmethod
@@ -68,18 +72,21 @@ class Job:
         job.assigned_node = data["assigned_node"]
         job.progress = data["progress"]
         job.error_message = data["error_message"]
+        job.submission_time = data.get("submission_time")
+        job.completion_time = data.get("completion_time")
         return job
 
 class Node:
     """
     Represents a single node in the cluster with its own resources.
     """
-    def __init__(self, name: str, cpu: int, gpu: int, ram: int, pytorch_version: str):
+    def __init__(self, name: str, cpu: int, gpu: int, ram: int, pytorch_version: str, unmanaged: bool = False):
         self.id = name
         self.resources = {"cpu": cpu, "gpu": gpu, "ram": ram}
         self.available_resources = self.resources.copy()
         self.pytorch_version = pytorch_version
         self.running_jobs: List[Job] = []
+        self.unmanaged = unmanaged
 
     def can_run_job(self, job: Job) -> bool:
         """Checks if the node has enough resources and the correct PyTorch version for a job."""
@@ -116,6 +123,7 @@ class Node:
             "available_resources": self.available_resources,
             "pytorch_version": self.pytorch_version,
             "running_jobs": [job.id for job in self.running_jobs],
+            "unmanaged": self.unmanaged,
         }
 
     @classmethod
@@ -124,6 +132,7 @@ class Node:
         node = cls(data["id"], data["resources"]["cpu"], data["resources"]["gpu"], data["resources"]["ram"], data["pytorch_version"])
         node.available_resources = data["available_resources"]
         node.running_jobs = [jobs_map[job_id] for job_id in data["running_jobs"]]
+        node.unmanaged = data.get("unmanaged", False)
         return node
 
 class Cluster:
