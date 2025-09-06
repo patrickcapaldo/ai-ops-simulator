@@ -9,8 +9,12 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from rich.console import Console
-from rich.prompt import Prompt
 from rich.panel import Panel
+
+# Import prompt_toolkit components
+from prompt_toolkit import prompt
+from prompt_toolkit.history import InMemoryHistory
+
 
 from src.commands import CommandHandler
 from src.tutorial_manager import TutorialManager # Import the new TutorialManager
@@ -26,9 +30,10 @@ def main():
     tutorial_manager = TutorialManager() # Initialize TutorialManager
     command_handler = CommandHandler(tutorial_manager) # Pass it to CommandHandler
 
-    try:
-        while True:
-            # Tutorial Mode is now the only mode
+    history = InMemoryHistory() # Initialize command history
+
+    while True:
+        try:
             if tutorial_manager.active_tutorial:
                 step_data = tutorial_manager.active_tutorial["steps"][tutorial_manager.tutorial_step]
                 prompt_text = step_data["text"]
@@ -42,7 +47,7 @@ def main():
                 if doc_prompt:
                     console.print(doc_prompt)
 
-                command_input = Prompt.ask("\nEnter command")
+                command_input = prompt("\nEnter command: ", history=history)
 
                 if command_input.strip().lower() == "docs" and step_data.get("doc_quote"):
                     console.print(Panel(step_data["doc_quote"], title="Documentation Quote", border_style="grey70"))
@@ -57,11 +62,19 @@ def main():
                     console.print("[bold red]That's not the right command. Try following the instructions carefully.[/bold red]")
             else:
                 # If no tutorial is active, just prompt for commands
-                command_input = Prompt.ask("\nEnter command")
+                command_input = prompt("\nEnter command: ", history=history)
                 command_handler.execute(command_input)
 
-    except (KeyboardInterrupt, SystemExit):
-        console.print("\n[bold blue]Exiting tutorials. Goodbye![/bold blue]")
+        except EOFError: # Ctrl+D or end of input stream
+            console.print("\n[bold blue]Exiting tutorials. Goodbye![/bold blue]")
+            break
+        except KeyboardInterrupt: # Ctrl+C
+            console.print("\n[bold yellow]Operation cancelled. Returning to prompt.[/bold yellow]")
+            # If a tutorial is active, we might want to reset the step or just stay at the current step.
+            # For now, just return to the prompt.
+            continue # Continue the loop to show the prompt again
+        except SystemExit: # For the 'exit' command
+            break
 
 if __name__ == "__main__":
     main()

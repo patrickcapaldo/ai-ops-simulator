@@ -28,6 +28,7 @@ class CommandHandler:
             "convert-onnx": self._convert_onnx,
             "debug": self._debug, # Keep debug for failed jobs in tutorials
             "edit-terraform-config": self._edit_terraform_config, # New command
+            "exit": self._exit, # Added exit command
         }
 
     def execute(self, command_input: str):
@@ -57,6 +58,7 @@ class CommandHandler:
         table_general.add_column("Description")
         table_general.add_row("help", "Displays this help message.")
         table_general.add_row("tutorial [list|show|start <id>]", "Lists tutorials, shows skills for one, or starts one. This is the main way to learn about different tools.")
+        table_general.add_row("exit", "Quits the application.") # Added exit to help
         console.print(table_general)
 
         # Simulated Kubernetes Commands
@@ -349,3 +351,8 @@ class CommandHandler:
             new_config_lines.append(line)
         TERRAFORM_CONFIG = "\n".join(new_config_lines)
         console.print("[bold green]TERRAFORM_CONFIG updated.[/bold green]")
+
+    def _exit(self, args):
+        """Exits the application."""
+        console.print("[bold blue]Exiting tutorials. Goodbye![/bold blue]")
+        raise SystemExit
