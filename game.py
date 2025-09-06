@@ -1,0 +1,268 @@
+"""
+Core game logic for the AI Ops Simulator.
+"""
+import json
+import random
+import re
+from typing import Dict, List, Optional
+
+from data import (TERRAFORM_CONFIG, Cluster, Job, JobStatus, JobType, Node)
+
+class Game:
+    """
+    Manages the game state, including the cluster, jobs, score, and events.
+    """
+    def __init__(self):
+        self.cluster = Cluster()
+        self.job_queue: List[Job] = []
+        self.completed_jobs: List[Job] = []
+        self.failed_jobs: List[Job] = []
+        self.score = 0
+        self.time = 0
+        self.cost = 0
+        self.autoscaling_enabled = False
+        self.event_log: List[str] = []
+        self.terraform_plan_preview = ""
+
+    def update(self):
+        """Main game loop update function."""
+        self.time += 1
+        self.cost += self._calculate_cost()
+        self._generate_jobs()
+        self._process_running_jobs()
+        self._handle_events()
+        if self.autoscaling_enabled:
+            self._autoscale_resources()
+
+    def _calculate_cost(self) -> float:
+        """Calculates the resource cost for the current time step."""
+        cost = 0
+        for node in self.cluster.nodes.values():
+            cost += node.resources["cpu"] * 0.1 + node.resources["gpu"] * 0.5 + node.resources["ram"] * 0.05
+        return cost
+
+    def _generate_jobs(self):
+        """Randomly generates new jobs."""
+        if random.random() < 0.3:  # 30% chance to generate a new job
+            job_type = random.choice([JobType.PYTORCH_TRAINING, JobType.INFERENCE])
+            requirements = {
+                "cpu": random.randint(1, 4),
+                "gpu": random.randint(0, 2),
+                "ram": random.randint(4, 32),
+            }
+            deadline = self.time + random.randint(20, 50)
+            pytorch_version = "2.0" if job_type == JobType.PYTORCH_TRAINING else None
+            new_job = Job(job_type, requirements, deadline, pytorch_version)
+            self.job_queue.append(new_job)
+            self.log_event(f"New job '{new_job.id}' arrived: {new_job.type.value}")
+
+    def _process_running_jobs(self):
+        """Processes all jobs currently running on nodes."""
+        for node in self.cluster.nodes.values():
+            for job in list(node.running_jobs):
+                job.progress += 10  # Simulate work being done
+                if job.progress >= 100:
+                    self.complete_job(job, node)
+                elif self.time > job.deadline:
+                    self.fail_job(job, node, "Deadline missed")
+
+    def _handle_events(self):
+        """Handles random game events."""
+        if random.random() < 0.05:  # 5% chance of a random event
+            event_type = random.choice(["hardware_failure", "urgent_job"])
+            if event_type == "hardware_failure" and self.cluster.nodes:
+                node_id = random.choice(list(self.cluster.nodes.keys()))
+                node = self.cluster.get_node(node_id)
+                if node:
+                    for job in list(node.running_jobs):
+                        self.fail_job(job, node, "Hardware failure")
+                    self.cluster.remove_node(node_id)
+                    self.log_event(f"Hardware failure on node '{node_id}'! Node removed.")
+            elif event_type == "urgent_job":
+                urgent_job = Job(JobType.INFERENCE, {"cpu": 2, "gpu": 1, "ram": 8}, self.time + 15)
+                self.job_queue.insert(0, urgent_job)
+                self.log_event(f"Urgent job '{urgent_job.id}' arrived with a tight deadline!")
+
+    def _autoscale_resources(self):
+        """Automatically scales resources based on job queue size."""
+        if len(self.job_queue) > 5 and len(self.cluster.nodes) < 10:
+            self.terraform_apply()
+            self.log_event("Autoscaling triggered: Added new nodes.")
+        elif len(self.job_queue) < 2 and len(self.cluster.nodes) > 2:
+            node_to_remove = random.choice(list(self.cluster.nodes.keys()))
+            if not self.cluster.nodes[node_to_remove].running_jobs:
+                self.cluster.remove_node(node_to_remove)
+                self.log_event(f"Autoscaling triggered: Removed idle node '{node_to_remove}'.")
+
+    def submit_job(self, job_id: str, node_id: str) -> str:
+        """Submits a job to a specific node."""
+        job = self.get_job(job_id)
+        node = self.cluster.get_node(node_id)
+
+        if not job:
+            return "Job not found."
+        if not node:
+            return "Node not found."
+        if job.status != JobStatus.PENDING:
+            return "Job is not pending."
+
+        if node.can_run_job(job):
+            try:
+                node.assign_job(job)
+                self.job_queue.remove(job)
+                self.log_event(f"Job '{job_id}' submitted to node '{node_id}'.")
+                return f"Job '{job_id}' submitted successfully."
+            except ValueError as e:
+                return str(e)
+        else:
+            if job.pytorch_version and job.pytorch_version != node.pytorch_version:
+                self.fail_job(job, node, f"PyTorch version mismatch: Job needs {job.pytorch_version}, node has {node.pytorch_version}")
+            else:
+                self.fail_job(job, node, "Insufficient resources")
+            return f"Failed to submit job '{job_id}': Resource or version mismatch."
+
+    def cancel_job(self, job_id: str) -> str:
+        """Cancels a running job."""
+        job = self.get_job(job_id)
+        if not job or job.status != JobStatus.RUNNING:
+            return "Cannot cancel job: Not found or not running."
+
+        node = self.cluster.get_node(job.assigned_node)
+        if node:
+            node.release_job(job)
+            job.status = JobStatus.PENDING
+            self.job_queue.append(job)
+            self.log_event(f"Job '{job_id}' cancelled and returned to queue.")
+            return f"Job '{job_id}' cancelled."
+        return "Error cancelling job."
+
+    def complete_job(self, job: Job, node: Node):
+        """Marks a job as complete and awards points."""
+        node.release_job(job)
+        job.status = JobStatus.COMPLETED
+        self.completed_jobs.append(job)
+        self.score += 100
+        self.log_event(f"Job '{job.id}' completed successfully on node '{node.id}'.")
+
+    def fail_job(self, job: Job, node: Optional[Node], reason: str):
+        """Marks a job as failed and logs the reason."""
+        if node and job in node.running_jobs:
+            node.release_job(job)
+        if job in self.job_queue:
+            self.job_queue.remove(job)
+
+        job.status = JobStatus.FAILED
+        job.error_message = reason
+        self.failed_jobs.append(job)
+        self.score -= 50
+        self.log_event(f"Job '{job.id}' failed: {reason}")
+
+    def terraform_plan(self) -> str:
+        """Generates a plan for provisioning resources from the mock config."""
+        match = re.search(r'count = (\d+)', TERRAFORM_CONFIG)
+        count = int(match.group(1)) if match else 0
+        self.terraform_plan_preview = f"Terraform will create {count} new nodes."
+        return self.terraform_plan_preview
+
+    def terraform_apply(self) -> str:
+        """Applies the terraform plan to provision new nodes."""
+        match_count = re.search(r'count = (\d+)', TERRAFORM_CONFIG)
+        match_cpu = re.search(r'cpu = (\d+)', TERRAFORM_CONFIG)
+        match_gpu = re.search(r'gpu = (\d+)', TERRAFORM_CONFIG)
+        match_ram = re.search(r'ram = (\d+)', TERRAFORM_CONFIG)
+        match_version = re.search(r'pytorch_version = "([\d.]+)"', TERRAFORM_CONFIG)
+
+        if not all([match_count, match_cpu, match_gpu, match_ram, match_version]):
+            return "Error parsing Terraform config."
+
+        count = int(match_count.group(1))
+        for i in range(count):
+            node_name = f"node-{len(self.cluster.nodes) + i}"
+            new_node = Node(
+                name=node_name,
+                cpu=int(match_cpu.group(1)),
+                gpu=int(match_gpu.group(1)),
+                ram=int(match_ram.group(1)),
+                pytorch_version=match_version.group(1)
+            )
+            self.cluster.add_node(new_node)
+        self.log_event(f"Terraform applied: {count} nodes provisioned.")
+        return f"{count} nodes have been provisioned."
+
+    def convert_to_onnx(self, job_id: str) -> str:
+        """Converts a completed PyTorch job to an ONNX job for optimization."""
+        job = self.get_job(job_id)
+        if not job or job.type != JobType.PYTORCH_TRAINING or job.status != JobStatus.COMPLETED:
+            return "Job must be a completed PyTorch training job."
+
+        onnx_job = Job(
+            job_type=JobType.ONNX,
+            requirements={k: v // 2 for k, v in job.requirements.items()},  # Reduced requirements
+            deadline=self.time + 30,
+        )
+        self.job_queue.append(onnx_job)
+        self.log_event(f"Job '{job.id}' converted to ONNX job '{onnx_job.id}'.")
+        return f"Created new ONNX job '{onnx_job.id}' with reduced resource needs."
+
+    def get_job(self, job_id: str) -> Optional[Job]:
+        """Finds a job by its ID across all lists."""
+        for job_list in [self.job_queue, self.completed_jobs, self.failed_jobs]:
+            for job in job_list:
+                if job.id == job_id:
+                    return job
+        for node in self.cluster.nodes.values():
+            for job in node.running_jobs:
+                if job.id == job_id:
+                    return job
+        return None
+
+    def log_event(self, message: str):
+        """Adds an event to the game log."""
+        self.event_log.insert(0, f"[Time: {self.time}] {message}")
+
+    def save_game(self, filename: str = "savegame.json") -> str:
+        """Saves the current game state to a JSON file."""
+        all_jobs = self.job_queue + self.completed_jobs + self.failed_jobs
+        for node in self.cluster.nodes.values():
+            all_jobs.extend(node.running_jobs)
+
+        state = {
+            "time": self.time,
+            "score": self.score,
+            "cost": self.cost,
+            "autoscaling_enabled": self.autoscaling_enabled,
+            "event_log": self.event_log,
+            "jobs": {job.id: job.to_dict() for job in all_jobs},
+            "cluster": self.cluster.to_dict(),
+        }
+        try:
+            with open(filename, "w") as f:
+                json.dump(state, f, indent=4)
+            self.log_event("Game saved.")
+            return f"Game saved to {filename}."
+        except IOError as e:
+            return f"Error saving game: {e}"
+
+    def load_game(self, filename: str = "savegame.json") -> str:
+        """Loads the game state from a JSON file."""
+        try:
+            with open(filename, "r") as f:
+                state = json.load(f)
+
+            jobs_map = {job_id: Job.from_dict(job_data) for job_id, job_data in state["jobs"].items()}
+
+            self.time = state["time"]
+            self.score = state["score"]
+            self.cost = state["cost"]
+            self.autoscaling_enabled = state["autoscaling_enabled"]
+            self.event_log = state["event_log"]
+            self.cluster = Cluster.from_dict(state["cluster"], jobs_map)
+
+            self.job_queue = [j for j in jobs_map.values() if j.status == JobStatus.PENDING]
+            self.completed_jobs = [j for j in jobs_map.values() if j.status == JobStatus.COMPLETED]
+            self.failed_jobs = [j for j in jobs_map.values() if j.status == JobStatus.FAILED]
+
+            self.log_event("Game loaded.")
+            return f"Game loaded from {filename}."
+        except (IOError, json.JSONDecodeError) as e:
+            return f"Error loading game: {e}"
