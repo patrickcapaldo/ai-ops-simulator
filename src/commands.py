@@ -47,29 +47,78 @@ class CommandHandler:
             console.print(f"[bold red]Unknown command: '{command}'[/bold red]")
 
     def _help(self, args):
-        """Displays a list of available commands."""
-        table = Table(title="Available Commands", show_header=True, header_style="bold magenta")
-        table.add_column("Command", style="dim", width=30)
-        table.add_column("Description")
-        commands_help = {
-            "help": "Displays this help message.",
-            "tutorial [list|show|start <id>]": "Lists tutorials, shows skills for one, or starts one.",
-            "ls-jobs": "Lists all incoming jobs in the queue.",
-            "submit <job_id> <node_id>": "Submits a job to a specific node.",
-            "show-job <job_id>": "Provides detailed information about a job.",
-            "status": "Shows the current state of the cluster and resource utilization.",
-            "terraform plan": "Previews changes from the cluster configuration.",
-            "terraform apply [ -target=<node_id> ]": "Provisions resources based on the configuration, optionally targeting a specific node.",
-            "terraform destroy <node_id>": "Destroys a specific node in the cluster.",
-            "terraform show": "Displays the current Terraform state.",
-            "terraform import <node_id>": "Imports an unmanaged node into Terraform state.",
-            "debug <job_id>": "Shows an error log for a failed job.",
-            "convert-onnx <job_id>": "Converts a completed model for optimization.",
-            "edit-terraform-config": "Allows direct editing of the mock Terraform configuration.",
-        }
-        for cmd, desc in commands_help.items():
-            table.add_row(cmd, desc)
-        console.print(table)
+        """Displays a list of available commands, categorized by tool."""
+        console.print("[bold]Available Commands:[/bold]")
+
+        # General Commands
+        console.print("\n[bold blue]General Commands:[/bold blue]")
+        table_general = Table(show_header=True, header_style="bold cyan")
+        table_general.add_column("Command", style="dim", width=30)
+        table_general.add_column("Description")
+        table_general.add_row("help", "Displays this help message.")
+        table_general.add_row("tutorial [list|show|start <id>]", "Lists tutorials, shows skills for one, or starts one. This is the main way to learn about different tools.")
+        console.print(table_general)
+
+        # Simulated Kubernetes Commands
+        console.print("\n[bold blue]Simulated Kubernetes Commands:[/bold blue]")
+        table_k8s = Table(show_header=True, header_style="bold cyan")
+        table_k8s.add_column("Command", style="dim", width=30)
+        table_k8s.add_column("Description")
+        table_k8s.add_row("kubectl apply -f <file>", "Simulates applying a Kubernetes manifest to deploy resources.")
+        console.print(table_k8s)
+
+        # Simulated Kubeflow Commands
+        console.print("\n[bold blue]Simulated Kubeflow Commands:[/bold blue]")
+        table_kf = Table(show_header=True, header_style="bold cyan")
+        table_kf.add_column("Command", style="dim", width=30)
+        table_kf.add_column("Description")
+        table_kf.add_row("kfctl apply -V -f <file>", "Simulates deploying Kubeflow components.")
+        table_kf.add_row("kfp run submit <file>", "Simulates submitting a Kubeflow pipeline.")
+        console.print(table_kf)
+
+        # Simulated Terraform Commands
+        console.print("\n[bold blue]Simulated Terraform Commands:[/bold blue]")
+        table_terraform = Table(show_header=True, header_style="bold cyan")
+        table_terraform.add_column("Command", style="dim", width=30)
+        table_terraform.add_column("Description")
+        table_terraform.add_row("terraform plan", "Previews changes from the simulated cluster configuration.")
+        table_terraform.add_row("terraform apply [ -target=<node_id> ]", "Provisions resources based on the configuration in the simulated cluster, optionally targeting a specific node.")
+        table_terraform.add_row("terraform destroy <node_id>", "Destroys a specific node in the simulated cluster.")
+        table_terraform.add_row("terraform show", "Displays the current simulated Terraform state.")
+        table_terraform.add_row("terraform import <node_id>", "Imports an unmanaged node into the simulated Terraform state.")
+        table_terraform.add_row("terraform init", "Initializes a simulated Terraform working directory.")
+        table_terraform.add_row("terraform validate", "Checks simulated Terraform configuration files for syntax and consistency.")
+        table_terraform.add_row("terraform fmt", "Rewrites simulated Terraform configuration files to a canonical format.")
+        table_terraform.add_row("edit-terraform-config", "Allows direct editing of the mock Terraform configuration used in tutorials.")
+        console.print(table_terraform)
+
+        # Simulated JAX Commands
+        console.print("\n[bold blue]Simulated JAX Commands:[/bold blue]")
+        table_jax = Table(show_header=True, header_style="bold cyan")
+        table_jax.add_column("Command", style="dim", width=30)
+        table_jax.add_column("Description")
+        table_jax.add_row("jax.jit(<function>)", "Simulates JIT compiling a function for performance with JAX.")
+        console.print(table_jax)
+
+        # Simulated PyTorch Commands
+        console.print("\n[bold blue]Simulated PyTorch Commands:[/bold blue]")
+        table_pytorch = Table(show_header=True, header_style="bold cyan")
+        table_pytorch.add_column("Command", style="dim", width=30)
+        table_pytorch.add_column("Description")
+        table_pytorch.add_row("status", "Shows the current state of the simulated cluster and resource utilization.")
+        table_pytorch.add_row("ls-jobs", "Lists all incoming jobs in the simulated queue.")
+        table_pytorch.add_row("submit <job_id> <node_id>", "Submits a job to a specific node in the simulated cluster.")
+        table_pytorch.add_row("show-job <job_id>", "Provides detailed information about a simulated job.")
+        table_pytorch.add_row("debug <job_id>", "Shows an error log for a failed simulated job.")
+        console.print(table_pytorch)
+
+        # Simulated ONNX Commands
+        console.print("\n[bold blue]Simulated ONNX Commands:[/bold blue]")
+        table_onnx = Table(show_header=True, header_style="bold cyan")
+        table_onnx.add_column("Command", style="dim", width=30)
+        table_onnx.add_column("Description")
+        table_onnx.add_row("convert-onnx <job_id>", "Converts a completed simulated model to ONNX format for optimization.")
+        console.print(table_onnx)
 
     def _tutorial(self, args):
         """Lists tutorials, shows details, or starts one."""
