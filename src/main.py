@@ -1,40 +1,36 @@
+# src/main.py
 """
-The main entry point for the AI Ops Simulator game.
+The main entry point for the AI Ops Simulator tutorials.
 """
 import sys
 import os
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import time
 
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.panel import Panel
 
 from src.commands import CommandHandler
-from src.game import Game
+from src.tutorial_manager import TutorialManager # Import the new TutorialManager
 
 console = Console()
 
 def main():
-    """Initializes the game and starts the main loop."""
-    console.print("[bold green]Welcome to the AI Ops Simulator![/bold green]")
-    console.print("Your job is to manage a cluster of servers to process AI jobs efficiently.")
-    console.print("\nType [bold yellow]tutorial[/bold yellow] for a step-by-step guide, or [bold yellow]help[/bold yellow] for a list of all commands.")
+    """Initializes the tutorial system and starts the main loop."""
+    console.print("[bold green]Welcome to the AI Ops Simulator Tutorials![/bold green]")
+    console.print("Learn about AI Ops concepts through interactive command-line exercises.")
+    console.print("\nType [bold yellow]tutorial[/bold yellow] to see available tutorials, or [bold yellow]help[/bold yellow] for a list of all commands.")
 
-    game = Game()
-    command_handler = CommandHandler(game)
-
-    # Initial terraform apply to set up the cluster
-    console.print("\n[bold yellow]Applying initial infrastructure setup...[/bold yellow]")
-    command_handler.execute("terraform apply")
+    tutorial_manager = TutorialManager() # Initialize TutorialManager
+    command_handler = CommandHandler(tutorial_manager) # Pass it to CommandHandler
 
     try:
         while True:
-            if game.active_tutorial:
-                # Tutorial Mode
-                step_data = game.active_tutorial["steps"][game.tutorial_step]
+            # Tutorial Mode is now the only mode
+            if tutorial_manager.active_tutorial:
+                step_data = tutorial_manager.active_tutorial["steps"][tutorial_manager.tutorial_step]
                 prompt_text = step_data["text"]
                 console.print(f"\n[bold cyan]TUTORIAL:[/bold cyan] {prompt_text}")
                 
@@ -52,22 +48,20 @@ def main():
                     console.print(Panel(step_data["doc_quote"], title="Documentation Quote", border_style="grey70"))
                     continue # Re-prompt for the actual command
 
-                if game.check_tutorial_input(command_input):
+                if tutorial_manager.check_tutorial_input(command_input):
                     command_handler.execute(command_input)
-                    game.advance_tutorial()
-                    if not game.active_tutorial: # Tutorial just ended
-                        console.print("[bold green]Tutorial complete! Returning to normal game mode.[/bold green]")
+                    tutorial_manager.advance_tutorial()
+                    if not tutorial_manager.active_tutorial: # Tutorial just ended
+                        console.print("[bold green]Tutorial complete! Select another tutorial to continue learning.[/bold green]")
                 else:
                     console.print("[bold red]That's not the right command. Try following the instructions carefully.[/bold red]")
             else:
-                # Normal Game Mode
-                game.update()
+                # If no tutorial is active, just prompt for commands
                 command_input = Prompt.ask("\nEnter command")
                 command_handler.execute(command_input)
-                time.sleep(1)  # Slow down game loop for playability
 
     except (KeyboardInterrupt, SystemExit):
-        console.print("\n[bold blue]Game over. Thanks for playing![/bold blue]")
+        console.print("\n[bold blue]Exiting tutorials. Goodbye![/bold blue]")
 
 if __name__ == "__main__":
     main()

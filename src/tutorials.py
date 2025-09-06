@@ -1,14 +1,16 @@
+# src/tutorials.py
 
 '''
-Defines the content and structure for interactive tutorials, grouped by category. 
+Defines the content and structure for interactive tutorials, grouped by tool.
 '''
 
-from src.data import Node, Job, JobType
+from src.tutorial_manager import Node, Job, JobType, TERRAFORM_CONFIG
+import re # Needed for custom_setup in some tutorials
 
 def create_node_trigger(game, node_id, cpu, gpu, ram, pytorch_version, unmanaged=False):
     """A trigger to create a specific node for a tutorial step."""
     new_node = Node(node_id, cpu, gpu, ram, pytorch_version, unmanaged=unmanaged)
-    game.cluster.add_node(new_node)
+    game.cluster[new_node.id] = new_node
 
 def create_job_trigger(game, job_type, requirements, deadline, pytorch_version=None):
     """A trigger to create a specific job for a tutorial step."""
@@ -19,12 +21,61 @@ def complete_job_trigger(game, job_id):
     """A trigger function to mark a specific job as complete for a tutorial step."""
     job = game.get_job(job_id)
     if job:
-        node = game.cluster.get_node(job.assigned_node)
+        # Find the node the job is running on
+        node = None
+        for n in game.cluster.values():
+            if job in n.running_jobs:
+                node = n
+                break
         if node:
             game.complete_job(job, node)
 
 
 TUTORIALS = {
+    "Kubernetes: Core Concepts": {
+        "k8s_1_1": {
+            "name": "1. Deploying a Pod",
+            "skills_learned": [
+                "Understanding Kubernetes Pods",
+                "Basic deployment commands"
+            ],
+            "steps": [
+                {
+                    "text": "Welcome to Kubernetes tutorials! We'll start by deploying a simple Pod.\n(This is a placeholder tutorial. No actual deployment will occur.)\nType `kubectl apply -f my-pod.yaml` to simulate deploying a Pod.",
+                    "expected_command": "kubectl apply -f my-pod.yaml",
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=0)
+                },
+                {
+                    "text": "You've simulated deploying a Pod! In a real Kubernetes environment, this would create a running instance of your application.\nThis concludes the first Kubernetes tutorial.",
+                    "expected_command": None
+                }
+            ]
+        }
+    },
+    "Kubeflow: MLOps Workflows": {
+        "kf_1_1": {
+            "name": "1. Running a Kubeflow Pipeline",
+            "skills_learned": [
+                "Introduction to Kubeflow Pipelines",
+                "Executing a simple ML workflow"
+            ],
+            "steps": [
+                {
+                    "text": "Welcome to Kubeflow tutorials! Let's simulate running a basic Kubeflow pipeline.\n(This is a placeholder tutorial. No actual pipeline will run.)\nType `kfctl apply -V -f kubeflow_v1.2.yaml` to simulate deploying Kubeflow.",
+                    "expected_command": "kfctl apply -V -f kubeflow_v1.2.yaml",
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=0)
+                },
+                {
+                    "text": "You've simulated deploying Kubeflow. Now, let's imagine running a pipeline.\nType `kfp run submit my-pipeline.yaml` to simulate running a pipeline.",
+                    "expected_command": "kfp run submit my-pipeline.yaml"
+                },
+                {
+                    "text": "You've simulated running a Kubeflow pipeline! In a real scenario, this would execute your end-to-end ML workflow.\nThis concludes the first Kubeflow tutorial.",
+                    "expected_command": None
+                }
+            ]
+        }
+    },
     "Terraform: Core Workflow": {
         "tf_1_1": {
             "name": "1. Your First Resource (terraform apply)",
@@ -61,7 +112,7 @@ TUTORIALS = {
                 {
                     "text": "Now, let's learn to preview changes before applying them. Your configuration has been updated to specify 3 nodes.\nType `terraform plan` to see what changes Terraform intends to make.",
                     "expected_command": "terraform plan",
-                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='''\nimport re\nfrom data import TERRAFORM_CONFIG\nTERRAFORM_CONFIG = re.sub(r'count = \\d+', 'count = 3', TERRAFORM_CONFIG)\n''')
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='''\nglobal TERRAFORM_CONFIG\nTERRAFORM_CONFIG = re.sub(r'count = \\d+', 'count = 3', TERRAFORM_CONFIG)\n''')
                 },
                 {
                     "text": "Notice Terraform plans to create 2 new nodes. This is a 'dry run' that shows the execution plan.\nNow, apply these changes. Type `terraform apply`.",
@@ -154,7 +205,7 @@ TUTORIALS = {
                 {
                     "text": "Consistent formatting improves readability and maintainability of your Terraform configurations. Let's introduce a formatting error and then fix it.\nType `terraform apply` to create a node, then we'll mess up the config.",
                     "expected_command": "terraform apply",
-                    "trigger": "lambda game: game.setup_tutorial_state(jobs=0, nodes=0, custom_setup='\'\nimport re\nfrom data import TERRAFORM_CONFIG\nTERRAFORM_CONFIG = re.sub(r'count = \\d+', 'count = 1', TERRAFORM_CONFIG)\n\'')"
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=0, custom_setup='''\nglobal TERRAFORM_CONFIG\nTERRAFORM_CONFIG = re.sub(r'count = \\d+', 'count = 1', TERRAFORM_CONFIG)\n''')
                 },
                 {
                     "text": "Now, let's intentionally mess up the formatting of your Terraform configuration. Type `edit-terraform-config` and remove some indentation or add extra spaces.",
@@ -184,7 +235,7 @@ TUTORIALS = {
                 {
                     "text": "Sometimes you need to apply changes to only a specific resource. Your configuration has been updated to give all nodes more RAM, but you only want to upgrade `node-0`.\nType `terraform apply -target=node-0`.",
                     "expected_command": "terraform apply -target=node-0",
-                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=2, custom_setup='''\nimport re\nfrom data import TERRAFORM_CONFIG\nTERRAFORM_CONFIG = re.sub(r'ram = \\d+', 'ram = 128', TERRAFORM_CONFIG)\n''')
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=2, custom_setup='''\nglobal TERRAFORM_CONFIG\nTERRAFORM_CONFIG = re.sub(r'ram = \\d+', 'ram = 128', TERRAFORM_CONFIG)\n''')
                 },
                 {
                     "text": "You've successfully targeted `node-0` for an update. The `-target` flag directs Terraform's operations to a specific subset of resources.\nType `status` to confirm only `node-0` has 128GB RAM.",
@@ -232,7 +283,7 @@ TUTORIALS = {
                 {
                     "text": "The Terraform state file tracks all resources managed by your configuration. You can list these resources directly from the state.\nType `terraform state list`.",
                     "expected_command": "terraform state list",
-                    "trigger": "lambda game: game.setup_tutorial_state(jobs=0, nodes=2)"
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=2)
                 },
                 {
                     "text": "This command shows a list of all resources that Terraform is currently managing. This is useful for auditing your infrastructure or preparing for state manipulations.\nThis concludes the state listing tutorial.",
@@ -277,6 +328,26 @@ TUTORIALS = {
             ]
         }
     },
+    "JAX: Accelerated Computing": {
+        "jax_1_1": {
+            "name": "1. JIT Compilation with JAX",
+            "skills_learned": [
+                "Introduction to JAX",
+                "Understanding JIT compilation for performance"
+            ],
+            "steps": [
+                {
+                    "text": "Welcome to JAX tutorials! JAX is a library for high-performance numerical computing.\nOne of its key features is JIT (Just-In-Time) compilation.\n(This is a placeholder tutorial. No actual JAX code will run.)\nType `jax.jit(my_function)` to simulate JIT compiling a function.",
+                    "expected_command": "jax.jit(my_function)",
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=0)
+                },
+                {
+                    "text": "You've simulated JIT compiling a function with JAX! This would typically lead to significant performance improvements.\nThis concludes the first JAX tutorial.\n",
+                    "expected_command": None
+                }
+            ]
+        }
+    },
     "PyTorch: Core Concepts": {
         "pt_1_1": {
             "name": "1. Handling PyTorch Version Mismatches",
@@ -289,17 +360,13 @@ TUTORIALS = {
                 {
                     "text": "This tutorial covers job failures from software incompatibility.\nWe have a special job that requires an older PyTorch version. Type `ls-jobs`.",
                     "expected_command": "ls-jobs",
-                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=0, custom_setup='''\ngame.cluster.add_node(Node(\"node-0\", 8, 2, 64, \"2.0\"))\ngame.cluster.add_node(Node(\"node-1\", 8, 2, 64, \"1.9\")) # Legacy node\ngame.job_queue.append(Job(JobType.PYTORCH_TRAINING, {\"cpu\": 2, \"gpu\": 1, \"ram\": 8}, game.time + 50, pytorch_version=\"1.9\"))\n''')
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=0, custom_setup='''\ncreate_node_trigger(game, \"node-0\", 8, 2, 64, \"2.0\")\ncreate_node_trigger(game, \"node-1\", 8, 2, 64, \"1.9\") # Legacy node\ncreate_job_trigger(game, JobType.PYTORCH_TRAINING, {\"cpu\": 2, \"gpu\": 1, \"ram\": 8}, game.time + 50, pytorch_version=\"1.9\")\n''')
                 },
                 {
                     "text": "Notice the job requires PyTorch 1.9. Let's try to submit it to `node-0` which has version 2.0 and see what happens.\nType `submit <job_id> node-0`.",
                     "expected_command": "submit",
-                    "is_dynamic": True
-                },
-                {
-                    "text": "The submission failed, as expected. When a job fails, you can get details.\nType `debug <job_id>` to see the error message.",
-                    "expected_command": "debug",
-                    "is_dynamic": True
+                    "is_dynamic": True,
+                    "doc_quote": "The `debug` command in this simulator provides a simplified view of an error log for a failed job, helping to diagnose issues like version mismatches or resource constraints."
                 },
                 {
                     "text": "The error shows a version mismatch. Now check your cluster to find the right node. Type `status`.",
@@ -325,12 +392,13 @@ TUTORIALS = {
                 {
                     "text": "Now that you understand versioning, let's try a basic job submission. You have a new PyTorch training job in the queue and a node available.\nType `ls-jobs` to see the job.",
                     "expected_command": "ls-jobs",
-                    "trigger": "lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='\'\ngame.job_queue.append(Job(JobType.PYTORCH_TRAINING, {\"cpu\": 4, \"gpu\": 1, \"ram\": 16}, game.time + 50, pytorch_version=\"2.0\"))\'')"
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='''\ncreate_job_trigger(game, JobType.PYTORCH_TRAINING, {\"cpu\": 4, \"gpu\": 1, \"ram\": 16}, game.time + 50, pytorch_version=\"2.0\")\n''')
                 },
                 {
                     "text": "You see the new job. Now, submit it to `node-0`.\nType `submit <job_id> node-0`.",
                     "expected_command": "submit",
-                    "is_dynamic": True
+                    "is_dynamic": True,
+                    "doc_quote": "The `submit` command allows you to assign a pending job to an available node in the cluster, initiating its execution."
                 },
                 {
                     "text": "The job is now running on `node-0`.",
@@ -339,7 +407,8 @@ TUTORIALS = {
                 {
                     "text": "To see the job's progress, type `show-job <job_id>`.",
                     "expected_command": "show-job",
-                    "is_dynamic": True
+                    "is_dynamic": True,
+                    "doc_quote": "The `show-job` command provides detailed information about a specific job, including its type, status, resource requirements, and progress."
                 },
                 {
                     "text": "You can see the job's progress percentage. This is useful for monitoring long-running tasks.\nThis concludes the basic job submission tutorial.",
@@ -361,12 +430,12 @@ TUTORIALS = {
                     "text": "This tutorial covers optimizing a trained model using ONNX.\nFirst, submit the PyTorch training job. Type `submit <job_id> node-0`.",
                     "expected_command": "submit",
                     "is_dynamic": True,
-                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='''\ngame.job_queue.append(Job(JobType.PYTORCH_TRAINING, {\"cpu\": 4, \"gpu\": 1, \"ram\": 16}, game.time + 50, pytorch_version=\"2.0\"))\n''')
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='''\ncreate_job_trigger(game, JobType.PYTORCH_TRAINING, {\"cpu\": 4, \"gpu\": 1, \"ram\": 16}, game.time + 50, pytorch_version=\"2.0\")\n''')
                 },
                 {
                     "text": "The training job is running. For this tutorial, we'll instantly complete it.",
                     "expected_command": "status", # Just ask user to check status to proceed
-                    "trigger": lambda game: complete_job_trigger(game, game.cluster.nodes["node-0"].running_jobs[0].id if game.cluster.nodes["node-0"].running_jobs else None)
+                    "trigger": lambda game: complete_job_trigger(game, list(game.cluster.values())[0].running_jobs[0].id if list(game.cluster.values()) else None)
                 },
                 {
                     "text": "The training job is complete. Now, we can convert it to a more efficient ONNX model.\nType `convert-onnx <completed_job_id>`.",
@@ -404,12 +473,13 @@ TUTORIALS = {
                 {
                     "text": "You've successfully converted a PyTorch model to ONNX. Now, let's submit this optimized job to a node. First, ensure you have a node available. Type `status`.",
                     "expected_command": "status",
-                    "trigger": "lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='\'\ngame.job_queue.append(Job(JobType.ONNX_INFERENCE, {\"cpu\": 2, \"gpu\": 0, \"ram\": 8}, game.time + 50))\'')"
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='''\ncreate_job_trigger(game, JobType.ONNX_INFERENCE, {\"cpu\": 2, \"gpu\": 0, \"ram\": 8}, game.time + 50)\n''')
                 },
                 {
                     "text": "Now, submit the ONNX job to `node-0`. Type `submit <onnx_job_id> node-0`.",
                     "expected_command": "submit",
-                    "is_dynamic": True
+                    "is_dynamic": True,
+                    "doc_quote": "Submitting an ONNX job involves assigning the optimized model to a compatible node for efficient inference, leveraging its reduced resource footprint."
                 },
                 {
                     "text": "The optimized ONNX job is now running. You've completed the ONNX workflow!\nThis concludes the ONNX job submission tutorial.",
@@ -430,22 +500,24 @@ TUTORIALS = {
                     "text": "This tutorial combines previous concepts. We'll go through a full model workflow.\nFirst, submit the PyTorch training job. Type `submit <job_id> node-0`.",
                     "expected_command": "submit",
                     "is_dynamic": True,
-                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='''\ngame.job_queue.append(Job(JobType.PYTORCH_TRAINING, {\"cpu\": 4, \"gpu\": 1, \"ram\": 16}, game.time + 50, pytorch_version=\"2.0\"))\n''')
+                    "trigger": lambda game: game.setup_tutorial_state(jobs=0, nodes=1, custom_setup='''\ncreate_job_trigger(game, JobType.PYTORCH_TRAINING, {\"cpu\": 4, \"gpu\": 1, \"ram\": 16}, game.time + 50, pytorch_version=\"2.0\")\n''')
                 },
                 {
                     "text": "The training job is running. For this tutorial, we'll instantly complete it.",
                     "expected_command": "status",
-                    "trigger": lambda game: complete_job_trigger(game, game.cluster.nodes["node-0"].running_jobs[0].id if game.cluster.nodes["node-0"].running_jobs else None)
+                    "trigger": lambda game: complete_job_trigger(game, list(game.cluster.values())[0].running_jobs[0].id if list(game.cluster.values()) else None)
                 },
                 {
                     "text": "Training complete. Now, convert it to ONNX. Type `convert-onnx <completed_job_id>`.",
                     "expected_command": "convert-onnx",
-                    "is_dynamic": True
+                    "is_dynamic": True,
+                    "doc_quote": "The `convert-onnx` command simulates the process of converting a trained PyTorch model into the ONNX format, enabling cross-platform deployment and optimization."
                 },
                 {
                     "text": "ONNX model created. Now, submit the optimized ONNX job. Type `submit <onnx_job_id> node-0`.",
                     "expected_command": "submit",
-                    "is_dynamic": True
+                    "is_dynamic": True,
+                    "doc_quote": "This step demonstrates the final stage of the model workflow, where the optimized ONNX model is deployed for inference, showcasing the efficiency gains from the conversion."
                 },
                 {
                     "text": "The optimized job is running. This concludes the end-to-end workflow tutorial!",
