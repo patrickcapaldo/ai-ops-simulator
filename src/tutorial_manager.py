@@ -2,6 +2,8 @@
 import json
 import random
 import re
+import os
+import importlib.util
 from enum import Enum
 from typing import Dict, List, Optional, Any
 
@@ -68,17 +70,6 @@ class Job:
         self.submission_time: Optional[int] = None
         self.completion_time: Optional[int] = None
 
-# Placeholder for TERRAFORM_CONFIG
-TERRAFORM_CONFIG = """
-resource "cluster_node" "default" {
-  count           = 1
-  cpu             = 8
-  gpu             = 2
-  ram             = 64
-  pytorch_version = "2.0"
-}
-"""
-
 class TutorialManager:
     def __init__(self):
         self.cluster: Dict[str, Node] = {}
@@ -90,6 +81,70 @@ class TutorialManager:
         self.tutorial_step = 0
         self.completed_tutorials: List[str] = []
         self.time = 0 # Simplified time for tutorials
+        self.terraform_config = """
+resource "cluster_node" "default" {
+  count           = 1
+  cpu             = 8
+  gpu             = 2
+  ram             = 64
+  pytorch_version = "2.0"
+}
+"""
+        self.prometheus_config = """
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+"""
+        self.tutorials: Dict[str, Dict[str, Any]] = {}
+        self._load_tutorials()
+
+    def _load_tutorials(self):
+        self.tutorials = {}
+        tutorial_dir = "src/tutorials"
+        for filename in os.listdir(tutorial_dir):
+            if filename.endswith(".py") and not filename.startswith("__"):
+                module_name = filename[:-3]
+                file_path = os.path.join(tutorial_dir, filename)
+                spec = importlib.util.spec_from_file_location(module_name, file_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                if hasattr(module, 'TUTORIAL_CATEGORY') and hasattr(module, 'TUTORIALS'):
+                    try:
+                        category = getattr(module, 'TUTORIAL_CATEGORY')
+                        tutorials_data = getattr(module, 'TUTORIALS')
+
+                        if category not in self.tutorials:
+                            self.tutorials[category] = {}
+
+                        for tutorial_id, tutorial_info in tutorials_data.items():
+                            # Copy all existing info and then add the module
+                            tutorial_entry = tutorial_info.copy()
+                            tutorial_entry["module"] = module
+                            self.tutorials[category][tutorial_id] = tutorial_entry
+                    except (AttributeError, KeyError, TypeError) as e:
+                        print(f"Warning: Error loading tutorial from {filename}: {e}. Skipping this tutorial.")
+                else:
+                    print(f"Warning: Tutorial file {filename} is missing TUTORIAL_CATEGORY or TUTORIALS variable.")
+
+    def get_all_tutorials(self):
+        return self.tutorials
+
+    def get_terraform_config(self) -> str:
+        return self.terraform_config
+
+    def set_terraform_config(self, config: str):
+        self.terraform_config = config
+
+    def get_prometheus_config(self) -> str:
+        return self.prometheus_config
+
+    def set_prometheus_config(self, config: str):
+        self.prometheus_config = config
 
     def setup_tutorial_state(self, jobs: int = 0, nodes: int = 0, custom_setup: str = None, clear_terraform_config: bool = False):
         """Sets up a clean state for a tutorial scenario."""
@@ -98,10 +153,8 @@ class TutorialManager:
         self.failed_jobs.clear()
         self.cluster.clear() # Clear existing nodes
 
-        global TERRAFORM_CONFIG # Access the global placeholder
-
         if clear_terraform_config:
-            TERRAFORM_CONFIG = """
+            self.terraform_config = """
 resource "cluster_node" "default" {
   count           = 1
   cpu             = 8
@@ -124,7 +177,7 @@ resource "cluster_node" "default" {
         if custom_setup:
             # This is a security risk in a real application, but for a local CLI tutorial, it's acceptable.
             # The custom_setup string comes from the trusted tutorials.py file.
-            exec(custom_setup, {'game': self, 'Node': Node, 'Job': Job, 'JobType': JobType, 'TERRAFORM_CONFIG': TERRAFORM_CONFIG, 're': re})
+            exec(custom_setup, {'game': self, 'Node': Node, 'Job': Job, 'JobType': JobType, 'TERRAFORM_CONFIG': self.terraform_config, 'PROMETHEUS_CONFIG': self.prometheus_config, 're': re})
 
 
     def start_tutorial(self, tutorial_id: str, tutorials_data: Dict) -> bool:
@@ -140,7 +193,7 @@ resource "cluster_node" "default" {
                 return True
         return False
 
-    def end_tutorial(self, tutorials_data: Dict):
+    def end_tutorial(self):
         """Ends the current tutorial and marks it as complete."""
         if self.active_tutorial:
             tutorial_id = self.active_tutorial_id
@@ -151,13 +204,7 @@ resource "cluster_node" "default" {
             self.active_tutorial = None
             self.active_tutorial_id = None
             self.tutorial_step = 0
-            # Need to get category for log message
-            cat = None
-            for c, tutorials_in_cat in tutorials_data.items():
-                if tutorial_id in tutorials_in_cat:
-                    cat = c
-                    break
-            # self.log_event(f"Tutorial \'{tutorials_data[cat][tutorial_id]['name']}\' completed!") # No event log in simplified version
+            # self.log_event(f"Tutorial '{tutorials_data[cat][tutorial_id]['name']}\' completed!") # No event log in simplified version
             # Reset to a default state
             self.setup_tutorial_state(jobs=0, nodes=0) # Start with a clean slate after tutorial
 
@@ -191,7 +238,7 @@ resource "cluster_node" "default" {
 
         self.tutorial_step += 1
         if self.tutorial_step >= len(self.active_tutorial["steps"]):
-            self.end_tutorial(TUTORIALS) # Pass TUTORIALS here
+            self.end_tutorial()
         else:
             # Trigger action for the new step
             next_step = self.active_tutorial["steps"][self.tutorial_step]
@@ -265,18 +312,18 @@ resource "cluster_node" "default" {
 
     def terraform_plan(self) -> str:
         """Generates a plan for provisioning resources from the mock config."""
-        match = re.search(r'count = (\d+)', TERRAFORM_CONFIG)
+        match = re.search(r'count = (\d+)', self.terraform_config)
         count = int(match.group(1)) if match else 0
         self.terraform_plan_preview = f"Terraform will create {count} new nodes."
         return self.terraform_plan_preview
 
     def terraform_apply(self, target: Optional[str] = None) -> str:
         """Applies the terraform plan to provision new nodes."""
-        match_count = re.search(r'count = (\d+)', TERRAFORM_CONFIG)
-        match_cpu = re.search(r'cpu = (\d+)', TERRAFORM_CONFIG)
-        match_gpu = re.search(r'gpu = (\d+)', TERRAFORM_CONFIG)
-        match_ram = re.search(r'ram = (\d+)', TERRAFORM_CONFIG)
-        match_version = re.search(r'pytorch_version = "([\d.]+)"', TERRAFORM_CONFIG)
+        match_count = re.search(r'count = (\d+)', self.terraform_config)
+        match_cpu = re.search(r'cpu = (\d+)', self.terraform_config)
+        match_gpu = re.search(r'gpu = (\d+)', self.terraform_config)
+        match_ram = re.search(r'ram = (\d+)', self.terraform_config)
+        match_version = re.search(r'pytorch_version = "([\d.]+)"', self.terraform_config)
 
         if not all([match_count, match_cpu, match_gpu, match_ram, match_version]):
             return "Error parsing Terraform config."
@@ -342,6 +389,14 @@ resource "cluster_node" "default" {
         node.unmanaged = False
         return f"Successfully imported '{node_id}' into Terraform state."
 
+    def terraform_state_list(self) -> str:
+        """Lists all resources in the Terraform state."""
+        output = ""
+        for node_id, node in self.cluster.items():
+            if not node.unmanaged:
+                output += f"{node_id}\n"
+        return output
+
     def convert_to_onnx(self, job_id: str) -> str:
         """Converts a completed PyTorch job to an ONNX job for optimization."""
         job = self.get_job(job_id)
@@ -375,6 +430,16 @@ resource "cluster_node" "default" {
     def get_completed_tutorials(self) -> List[str]:
         return self.completed_tutorials
 
+    def create_node_trigger(self, node_id, cpu, gpu, ram, pytorch_version, unmanaged=False):
+        """A trigger to create a specific node for a tutorial step."""
+        new_node = Node(node_id, cpu, gpu, ram, pytorch_version, unmanaged=unmanaged)
+        self.cluster[new_node.id] = new_node
+
+    def create_job_trigger(self, job_type, requirements, deadline, pytorch_version=None):
+        """A trigger to create a specific job for a tutorial step."""
+        new_job = Job(job_type, requirements, deadline, pytorch_version)
+        self.job_queue.append(new_job)
+
 # This import needs to be at the bottom to avoid circular dependencies
 # as TUTORIALS uses TutorialManager methods in its triggers.
-from src.tutorials import TUTORIALS
+

@@ -5,4 +5,4 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 # Run the main Python script from that directory
-python3 "$DIR/src/main.py" "$@"
+"$DIR/venv/bin/python3" "$DIR/src/main.py" "$@"
