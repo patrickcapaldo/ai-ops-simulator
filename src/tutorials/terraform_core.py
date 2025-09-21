@@ -181,7 +181,7 @@ TERRAFORM_CONFIG = re.sub(r'count = \\d+', 'count = 3', TERRAFORM_CONFIG)
             {
                 "text": "Consistent formatting improves readability and maintainability of your Terraform configurations. Terraform has a built-in command to automatically format your files.\n\nLet's introduce a formatting error and then fix it. Type `terraform apply` to create a node, then we'll mess up the config.",
                 "expected_command": "terraform apply",
-                "trigger": "lambda game: game.setup_tutorial_state(jobs=0, nodes=0, custom_setup='''\n    global TERRAFORM_CONFIG\n    TERRAFORM_CONFIG = re.sub(r'count = \d+', 'count = 1', TERRAFORM_CONFIG)\n''')"
+                "trigger": "lambda game: game.setup_tutorial_state(jobs=0, nodes=0, custom_setup='''\n    global TERRAFORM_CONFIG\n    TERRAFORM_CONFIG = re.sub(r'count = \\d+', 'count = 1', TERRAFORM_CONFIG)\n''')"
             },
             {
                 "text": "Now, let's intentionally mess up the formatting of your Terraform configuration. Type `edit-terraform-config` and remove some indentation or add extra spaces.",

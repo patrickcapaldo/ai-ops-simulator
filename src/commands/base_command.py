@@ -8,9 +8,13 @@ from typing import List
 console = Console()
 
 class CommandExecutor:
-    def __init__(self, tutorial_manager: TutorialManager, command_handlers: List['BaseCommand']):
+    def __init__(self, tutorial_manager: TutorialManager, command_handlers: List['BaseCommand'] = None):
         self.tutorial_manager = tutorial_manager
         self.commands = {}
+        if command_handlers:
+            self.set_command_handlers(command_handlers)
+
+    def set_command_handlers(self, command_handlers: List['BaseCommand']):
         for handler in command_handlers:
             self.commands[handler.name] = handler
 

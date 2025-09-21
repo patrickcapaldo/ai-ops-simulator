@@ -25,7 +25,8 @@ def main():
     console.print("Type [bold yellow]tutorial list[/bold yellow] to see available tutorials, or [bold yellow]help[/bold yellow] for a list of all commands.")
 
     tutorial_manager = TutorialManager()
-    command_executor = CommandExecutor(tutorial_manager, get_command_handlers(tutorial_manager))
+    command_executor = CommandExecutor(tutorial_manager) # Initialize without handlers
+    command_executor.set_command_handlers(get_command_handlers(tutorial_manager, command_executor)) # Set handlers after initialization
     history = InMemoryHistory()
 
     while True:
@@ -78,15 +79,17 @@ def main():
                     continue
 
                 command_input = prompt(prompt_parts, history=history)
-                command_executor.execute(command_input)
+                if tutorial_manager.check_tutorial_input(command_input):
+                    command_executor.execute(command_input)
 
-                if tutorial_manager.active_tutorial and step_data.get("final_step"):
-                    console.print(f"[bold green]{step_data.get('final_message', '')}[/bold green]")
-                    tutorial_manager.end_tutorial()
-                    console.print("[bold green]Tutorial complete! Select another tutorial to continue learning.[/bold green]")
-                    continue
-                
-                tutorial_manager.advance_tutorial()
+                    if step_data.get("final_step"):
+                        console.print(f"[bold green]{step_data.get('final_message', '')}[/bold green]")
+                        tutorial_manager.end_tutorial()
+                        console.print("[bold green]Tutorial complete! Select another tutorial to continue learning.[/bold green]")
+                    else:
+                        tutorial_manager.advance_tutorial()
+                else:
+                    console.print("[bold red]That's not the right command. Try following the instructions carefully.[/bold red]")
             else:
                 command_input = prompt("\nEnter command: ", history=history)
                 command_executor.execute(command_input)

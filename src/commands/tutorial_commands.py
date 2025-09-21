@@ -95,11 +95,15 @@ class TutorialCommands(BaseCommand):
         else:
             console.print("[bold red]Tutorial not found.[/bold red]")
 
-    def _next(self, *args):
-        """Advances to the next step in a tutorial."""
-        pass
-
     def _quit_tutorial(self, *args):
         """Exits the current tutorial and returns to the main prompt."""
         self.tutorial_manager.end_tutorial()
         console.print("[bold green]Exited tutorial. Returning to main prompt.[/bold green]")
+
+class NextCommand(BaseCommand):
+    def __init__(self, tutorial_manager):
+        super().__init__("next", "Advances to the next step in a tutorial")
+        self.tutorial_manager = tutorial_manager
+
+    def execute(self, *args):
+        self.tutorial_manager.advance_tutorial()

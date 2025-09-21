@@ -180,9 +180,10 @@ resource "cluster_node" "default" {
             exec(custom_setup, {'game': self, 'Node': Node, 'Job': Job, 'JobType': JobType, 'TERRAFORM_CONFIG': self.terraform_config, 'PROMETHEUS_CONFIG': self.prometheus_config, 're': re})
 
 
-    def start_tutorial(self, tutorial_id: str, tutorials_data: Dict) -> bool:
+    def start_tutorial(self, tutorial_id: str, tutorials_data: Optional[Dict] = None) -> bool:
         """Starts an interactive tutorial by searching through categories."""
-        for category, tutorials in tutorials_data.items():
+        tutorials_to_use = tutorials_data if tutorials_data is not None else self.tutorials
+        for category, tutorials in tutorials_to_use.items():
             if tutorial_id in tutorials:
                 self.active_tutorial = tutorials[tutorial_id]
                 self.active_tutorial_id = tutorial_id

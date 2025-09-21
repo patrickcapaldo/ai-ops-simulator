@@ -1,8 +1,8 @@
 
 # src/commands/__init__.py
 
-from .general_commands import GeneralCommands, ExitCommand
-from .tutorial_commands import TutorialCommands
+from .general_commands import GeneralCommands, ExitCommand, HelpCommand
+from .tutorial_commands import TutorialCommands, NextCommand
 from .job_commands import JobCommands
 from .terraform_commands import TerraformCommands
 from .kubernetes_commands import KubernetesCommands
@@ -13,11 +13,13 @@ from .pytorch_commands import PyTorchCommands
 from .cuda_commands import CUDACommands
 from .prometheus_commands import PrometheusCommands
 
-def get_command_handlers(tutorial_manager):
+def get_command_handlers(tutorial_manager, command_executor):
     return [
         GeneralCommands(tutorial_manager),
         ExitCommand(tutorial_manager),
+        HelpCommand(tutorial_manager, command_executor),
         TutorialCommands(tutorial_manager),
+        NextCommand(tutorial_manager),
         JobCommands(tutorial_manager),
         TerraformCommands(tutorial_manager),
         KubernetesCommands(tutorial_manager),
