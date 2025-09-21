@@ -23,7 +23,7 @@ The AI Ops Simulator Tutorials guide you through key aspects of managing AI work
 
 The simulator includes a comprehensive set of interactive tutorials designed to guide you through the core concepts and advanced features of various AI Ops tools.
 
-To access the tutorials, type `tutorial` for a list of available tutorials, `tutorial show <ID>` to see the skills offered by a specific tutorial, or `tutorial start <ID>` to begin a tutorial.
+To access the tutorials, type `tutorial list` for a list of available tutorials, `tutorial show <ID>` to see the skills offered by a specific tutorial, or `tutorial start <ID>` to begin a tutorial.
 
 ## Requirements
 
@@ -105,7 +105,7 @@ Once started, you can use the `tutorial` command to explore and begin learning.
 
 | Command                                   | Description                                                 |
 | :---------------------------------------- | :---------------------------------------------------------- |
-| `jax.jit(<function>)`                     | Simulates JIT compiling a function for performance with JAX. |
+| `jax-jit`                   | Simulates JIT compiling a function for performance with JAX. |
 
 ### Simulated PyTorch Commands
 
